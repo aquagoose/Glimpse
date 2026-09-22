@@ -439,14 +439,16 @@ public class GlimpsePlayer : Window
 
                     ImGui.SameLine();
 
+                    bool spacePressed = ImGui.IsKeyPressed(ImGuiKey.Space);
+
                     if (player.TrackState == TrackState.Playing)
                     {
-                        if (ImGui.ImageButton("PauseButton", _pauseButton, iconSize, Vector4.Zero, iconsColor))
+                        if (ImGui.ImageButton("PauseButton", _pauseButton, iconSize, Vector4.Zero, iconsColor) || spacePressed)
                             player.Pause();
                     }
                     else
                     {
-                        if (ImGui.ImageButton("PlayButton", _playButton, iconSize, Vector4.Zero, iconsColor))
+                        if (ImGui.ImageButton("PlayButton", _playButton, iconSize, Vector4.Zero, iconsColor) || spacePressed)
                             player.Play();
                     }
 
