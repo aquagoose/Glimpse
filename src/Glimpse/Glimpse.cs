@@ -197,7 +197,7 @@ public class Glimpse : IGlimpse, IDisposable
         {
             Logger.Log($"Searching for plugins in {pluginsLocation}");
             foreach (string file in Directory.GetFiles(pluginsLocation, "*.json", SearchOption.AllDirectories))
-                LoadPlugin(file);
+                TryLoadPlugin(file, out _);
         }
 #endif
 
@@ -650,20 +650,27 @@ public class Glimpse : IGlimpse, IDisposable
                 string pluginName = Path.GetFileNameWithoutExtension(file);
                 string outDir = Path.Combine(pluginsLocation, pluginName);
                 Logger.Log($"Copying plugin '{pluginName}' to {outDir}.");
+                if (Directory.Exists(outDir))
+                    Directory.Delete(outDir, true);
                 ZipFile.ExtractToDirectory(file, outDir);
                 try
                 {
-                    string id = LoadPlugin(Path.Combine(outDir, "Plugin.json"));
-                    SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Information, "Glimpse",
-                        $"Plugin \"{id}\" installed! Go to the settings to enable it.", MainWindow.Handle);
+                    if (TryLoadPlugin(Path.Combine(outDir, "Plugin.json"), out string id))
+                    {
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Plugin Installed",
+                            $"Plugin \"{id}\" installed! Go to the settings to enable it."));
+                    }
+                    else
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Plugin Updated",
+                            $"Plugin \"{id}\" was updated but Glimpse cannot currently reload plugins.\nRestart Glimpse to load the new plugin."));
                 }
                 catch (Exception e)
                 {
 #if DEBUG
                     throw;
 #else
-                SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Error, "Glimpse", $"Failed to install plugin: {e}",
-                    MainWindow.Handle);
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Install Failed",
+                        $"Failed to install plugin:\n{e}"));
 #endif
                 }
 
@@ -705,17 +712,20 @@ public class Glimpse : IGlimpse, IDisposable
         }
     }
 
-    private string LoadPlugin(string pluginJsonFile)
+    private bool TryLoadPlugin(string pluginJsonFile, out string id)
     {
         string json = File.ReadAllText(pluginJsonFile);
         JsonNode pluginJson = JsonNode.Parse(json)!;
 
-        string id = pluginJson["ID"].ToString();
+        id = pluginJson["ID"].ToString();
         string name = pluginJson["Name"].ToString();
         string author = pluginJson["Author"].ToString();
         string? description = pluginJson["Description"]?.ToString();
         string entryPoint = pluginJson["EntryPoint"].ToString();
         JsonArray? dependencies = pluginJson["Dependencies"]?.AsArray();
+
+        if (Plugins.ContainsKey(id))
+            return false;
         
         Logger.Log($"Loading plugin \"{name}\" ({id}) at {entryPoint}");
 
@@ -739,7 +749,7 @@ public class Glimpse : IGlimpse, IDisposable
         if (Config.Plugins.EnabledPlugins.Contains(id))
             plugin.Initialize(this);
 
-        return id;
+        return true;
     }
 
     private void OnPipeServerConnection(IAsyncResult asyncResult)
