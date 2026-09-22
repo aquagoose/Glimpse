@@ -12,6 +12,7 @@ using Glimpse.API.Library;
 using Glimpse.Audio;
 using Glimpse.Configs;
 using Glimpse.Forms;
+using Glimpse.Graphics;
 using Glimpse.Library;
 using Glimpse.Platforms;
 using Hexa.NET.ImGui;
@@ -184,6 +185,8 @@ public class Glimpse : IGlimpse, IDisposable
         Library = new MusicLibrary(Logger, Player);
         //Database.Index(); // todo setting to index on startup
         
+        AddWindow(window);
+        
 #if !PUBLISH_AOT
         Logger.Log("Searching for 'Plugins' directory.");
         string pluginsLocation = Utils.GetPath("Plugins");
@@ -201,7 +204,6 @@ public class Glimpse : IGlimpse, IDisposable
         _mainThreadID = Environment.CurrentManagedThreadId;
         _eventFilter = WindowExposedEventWatch;
         
-        AddWindow(window);
         SDL.AddEventWatch(_eventFilter, 0);
 
         if (args.Length > 0)
@@ -783,4 +785,11 @@ public class Glimpse : IGlimpse, IDisposable
     IAudioPlayer IGlimpse.Player => Player;
     IMusicLibrary IGlimpse.Library => Library;
     ILocale IGlimpse.Locale => Locale;
+    
+    public void AddButton(string name, string icon, string? tooltip, Action onClick)
+    {
+        GlimpsePlayer player = (GlimpsePlayer) MainWindow;
+        Image image = player.Renderer.CreateImage(icon);
+        ((GlimpsePlayer) MainWindow).AddCustomButton(new GlimpsePlayer.CustomButton(name, image, tooltip, onClick));
+    }
 }

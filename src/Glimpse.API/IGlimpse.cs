@@ -15,4 +15,6 @@ public interface IGlimpse
     public IMusicLibrary Library { get; }
     
     public ILocale Locale { get; }
+
+    public void AddButton(string name, string icon, string? tooltip, Action onClick);
 }

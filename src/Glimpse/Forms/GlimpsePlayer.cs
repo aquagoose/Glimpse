@@ -27,6 +27,8 @@ public class GlimpsePlayer : Window
     private ImGuiStyle _defaultStyle;
     private Theme.ThemeConfig _themeConfig;
 
+    private List<CustomButton> _customButtons;
+
     private Size _restoreSize;
     private bool _miniplayer;
 
@@ -74,6 +76,8 @@ public class GlimpsePlayer : Window
     
     public GlimpsePlayer()
     {
+        _customButtons = [];
+        
 #if DEBUG
         Title = "Glimpse DEBUG";
 #else
@@ -903,10 +907,25 @@ public class GlimpsePlayer : Window
                 Vector2 contentRegion = ImGui.GetContentRegionAvail();
 
                 bool updateAvailable = _newVersionURL != null;
+
+                int numButtons = updateAvailable ? 4 : 3;
+                numButtons += _customButtons.Count;
+                float totalButtonWidth = numButtons * ((16 * Scale) + (ImGui.GetStyle().FramePadding.X * 2 + ImGui.GetStyle().ItemSpacing.X));
                 
-                ImGui.SetCursorPos(new Vector2(contentRegion.X - (int) ((updateAvailable ? 114 : 82) * Scale), (int) (5 * Scale)));
+                ImGui.SetCursorPos(new Vector2(contentRegion.X - (int) totalButtonWidth + 15 * Scale, (int) (5 * Scale)));
                 ImGui.BeginChild("SettingsButtons");
                 {
+                    foreach (CustomButton button in _customButtons)
+                    {
+                        if (ImGui.ImageButton(button.Name, button.Image, ScaleVec(16), Vector4.Zero, iconsColor))
+                            button.OnClick();
+                        
+                        if (button.Tooltip != null)
+                            ImGui.SetItemTooltipUnformatted(button.Tooltip);
+                        
+                        ImGui.SameLine();
+                    }
+                    
                     if (updateAvailable)
                     {
                         Vector4 buttonColor = *ImGui.GetStyleColorVec4(ImGuiCol.Button);
@@ -1367,6 +1386,11 @@ public class GlimpsePlayer : Window
         }
     }
 
+    public void AddCustomButton(CustomButton button)
+    {
+        _customButtons.Add(button);
+    }
+
     public override void Dispose()
     {
         _playCountTimer.Dispose();
@@ -1634,5 +1658,21 @@ public class GlimpsePlayer : Window
         Artists,
         Genres,
         Playlists
+    }
+
+    public struct CustomButton
+    {
+        public string Name;
+        public Image Image;
+        public string? Tooltip;
+        public Action OnClick;
+
+        public CustomButton(string name, Image image, string? tooltip, Action onClick)
+        {
+            Name = name;
+            Image = image;
+            Tooltip = tooltip;
+            OnClick = onClick;
+        }
     }
 }
