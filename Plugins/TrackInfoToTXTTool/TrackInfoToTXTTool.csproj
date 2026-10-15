@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <Reference Include="Glimpse.API">
+        <HintPath>P:\Program Files\Glimpse\Glimpse.API.dll</HintPath>
+      </Reference>
+      <Reference Include="Hexa.NET.ImGui;">
+        <HintPath>P:\Program Files\Glimpse\Hexa.NET.ImGui.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+</Project>
