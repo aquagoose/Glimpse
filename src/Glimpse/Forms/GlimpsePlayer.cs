@@ -57,6 +57,8 @@ public class GlimpsePlayer : Window
     private int _currentRowHover;
     private int _currentRatingHover;
 
+    private float _indexingProgress;
+
     private Image _playButton;
     private Image _pauseButton;
     private Image _skipButton;
@@ -934,9 +936,36 @@ public class GlimpsePlayer : Window
 
                 int numButtons = updateAvailable ? 4 : 3;
                 numButtons += _customButtons.Count;
+                if (Glimpse.Library.IsIndexing)
+                    numButtons += 3;
                 float totalButtonWidth = numButtons * ((16 * Scale) + (ImGui.GetStyle().FramePadding.X * 2 + ImGui.GetStyle().ItemSpacing.X));
                 
                 ImGui.SetCursorPos(new Vector2(contentRegion.X - (int) totalButtonWidth + 15 * Scale, (int) (5 * Scale)));
+
+                // small lil library indexing progress bar
+                // means people don't need to click the + to check if its still indexing
+                if (Glimpse.Library.IsIndexing)
+                {
+                    ImGui.BeginChild("IndexingProgress", ImGuiChildFlags.AutoResizeX);
+                    {
+                        _indexingProgress += dt;
+                        if (_indexingProgress >= 1)
+                            _indexingProgress -= 1;
+
+                        ImGui.SetCursorPosY(6 * Scale);
+                        ImGui.ProgressBar(-_indexingProgress, ScaleVec(16 * 5 + ImGui.GetStyle().FramePadding.X, 10));
+
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Popup.ManageLibrary.IndexingStatus",
+                            Path.GetFileName(Glimpse.Library.CurrentlyIndexedFile!)));
+
+                        ImGui.SameLine();
+
+                        ImGui.EndChild();
+                    }
+                    
+                    ImGui.SameLine();
+                }
+                
                 ImGui.BeginChild("SettingsButtons");
                 {
                     foreach (CustomButton button in _customButtons)
