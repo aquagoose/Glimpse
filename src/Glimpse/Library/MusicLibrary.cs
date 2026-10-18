@@ -74,7 +74,7 @@ public class MusicLibrary : IMusicLibrary
             File.Create(GetPlaylistPath(IMusicLibrary.FavoritesPlaylistName)).Dispose();
         }
 
-        // Handle first-time usage. TODO This will also deal with the migration from Database.json -> Library.json
+        // Handle first-time usage.
         if (!File.Exists(_databasePath))
         {
             SaveLibrary(false);
@@ -452,11 +452,10 @@ public class MusicLibrary : IMusicLibrary
 
     private void IndexLibrary()
     {
-        // TODO: Make this thread safe.
-        /*Dictionary<string, Track> tracks = [];
-        Dictionary<string, Album> albums = [];
-        Dictionary<string, Artist> artists = [];
-        Dictionary<string, Genre> genres = [];*/
+        // gets all track paths currently in the library.
+        // used to track which files no longer exist, by removing tracks from this list that DO still exist.
+        // ToHashSet is not a particularly fast operation, but it's not called often, so eh.
+        HashSet<string> trackPathsInCurrentLibrary = _tracks.Keys.ToHashSet();
         
         foreach (string libraryPath in _libraryPaths)
         {
@@ -475,7 +474,11 @@ public class MusicLibrary : IMusicLibrary
                         continue;
                     }
 
-                    TryGetTrack(path, out Track? oldTrack);
+                    trackPathsInCurrentLibrary.Remove(path);
+
+                    // the output is valid regardless of whether the track exists or not,
+                    // so we can just ignore the return value.
+                    _ = TryGetTrack(path, out Track? oldTrack);
                     Track track = new Track(path, info, oldTrack);
                     _tracks[path] = track;
 
@@ -517,10 +520,17 @@ public class MusicLibrary : IMusicLibrary
             }
         }
 
-        /*_tracks = tracks;
-        _albums = albums;
-        _artists = artists;
-        _genres = genres;*/
+        // as the loop removes each track from the hashset as it goes, anything left in here should be tracks that
+        // no longer exist on the user's filesystem.
+        // if the setting is enabled, we should remove those tracks from the library.
+        if (_glimpse.Config.Library.RemoveMissingFilesFromLibrary)
+        {
+            foreach (string path in trackPathsInCurrentLibrary)
+            {
+                // try to delete the track. if it fails for some reason, oh well. carry on
+                _ = TryDeleteTrack(path);
+            }
+        }
 
         _currentlyIndexedPath = null;
         SaveLibrary(false);

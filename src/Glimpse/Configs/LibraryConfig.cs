@@ -4,7 +4,7 @@ public struct LibraryConfig() : IEquatable<LibraryConfig>
 {
     public bool RefreshLibraryOnStartup = false;
 
-    public bool RemoveMissingFilesFromLibrary = false;
+    public bool RemoveMissingFilesFromLibrary = true;
 
 
     public bool Equals(LibraryConfig other)

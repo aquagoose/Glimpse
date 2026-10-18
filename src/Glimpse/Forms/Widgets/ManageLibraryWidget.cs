@@ -47,7 +47,7 @@ public class ManageLibraryWidget : IDisposable
         
         ImGui.BeginDisabled(_glimpse.Library.IsIndexing);
 
-        if (ImGui.BeginListBox("##Libraries", _popup.ScaleVec(400, 415)))
+        if (ImGui.BeginListBox("##Libraries", _popup.ScaleVec(375, 415)))
         {
             foreach (LibraryDirectory dir in LibraryPaths)
                 dir.Update(_glimpse.Library, ref _selectedLibrary, locale);
@@ -95,8 +95,8 @@ public class ManageLibraryWidget : IDisposable
             
             ImGui.Checkbox("Refresh on Launch", ref _glimpse.Config.Library.RefreshLibraryOnStartup);
             ImGui.SetItemTooltipUnformatted("Refresh the music library when Glimpse is launched.");
-            ImGui.Checkbox("Remove Deleted Files", ref _glimpse.Config.Library.RemoveMissingFilesFromLibrary);
-            ImGui.SetItemTooltipUnformatted("Automatically remove tracks from the library that can no longer be found.");
+            ImGui.Checkbox("Remove Missing Tracks", ref _glimpse.Config.Library.RemoveMissingFilesFromLibrary);
+            ImGui.SetItemTooltipUnformatted("Automatically remove tracks from the library that have been moved/deleted.");
             
             ImGui.EndChild();
         }
