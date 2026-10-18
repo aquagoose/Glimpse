@@ -183,7 +183,7 @@ public class Glimpse : IGlimpse, IDisposable
 
         //Database!.Logger = Logger;
         //Database!.Refresh();
-        Library = new MusicLibrary(Logger, Player);
+        Library = new MusicLibrary(this, Player);
         //Database.Index(); // todo setting to index on startup
         
         AddWindow(window);

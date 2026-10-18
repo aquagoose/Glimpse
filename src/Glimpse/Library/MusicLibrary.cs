@@ -15,7 +15,7 @@ public class MusicLibrary : IMusicLibrary
     public const string DatabaseName = "Library";
     public const uint DatabaseVersion = 1;
 
-    private readonly Logger _logger;
+    private readonly Glimpse _glimpse;
     private readonly AudioPlayer _player;
     private readonly string _databasePath;
     private readonly string _playlistsBasePath;
@@ -50,9 +50,9 @@ public class MusicLibrary : IMusicLibrary
 
     public IReadOnlyCollection<string> ExcludedDirectories => _excludedDirectories;
 
-    public MusicLibrary(Logger logger, AudioPlayer player)
+    public MusicLibrary(Glimpse glimpse, AudioPlayer player)
     {
-        _logger = logger;
+        _glimpse = glimpse;
         _player = player;
         _databasePath = Path.Combine(IConfigManager.BaseDir, $"{DatabaseName}.json");
         _playlistsBasePath = Path.Combine(IConfigManager.BaseDir, "Playlists");
@@ -98,6 +98,9 @@ public class MusicLibrary : IMusicLibrary
 
         foreach (Genre genre in library.Genres)
             _genres.TryAdd(genre.Name, genre);
+        
+        if (_glimpse.Config.Library.RefreshLibraryOnStartup)
+            Index();
     }
     
     public SizedCollection<Track> GetTracks()
@@ -134,7 +137,7 @@ public class MusicLibrary : IMusicLibrary
 
     public SizedCollection<Playlist> GetPlaylists()
     {
-        _logger.Log("Refreshing playlists.");
+        _glimpse.Logger.Log("Refreshing playlists.");
         string[] playlistFiles = Directory.GetFiles(_playlistsBasePath, $"*{PlaylistFileExtension}");
 
         List<Playlist> playlists = [];
@@ -166,7 +169,7 @@ public class MusicLibrary : IMusicLibrary
         {
             if (!Directory.Exists(libraryPath))
             {
-                _logger.Log($"ERROR: Library path \"{libraryPath}\" does not exist! Skipping...");
+                _glimpse.Logger.Log($"ERROR: Library path \"{libraryPath}\" does not exist! Skipping...");
                 continue;
             }
 
@@ -436,7 +439,7 @@ public class MusicLibrary : IMusicLibrary
 
     private void SaveLibrary(bool emitChanged)
     {
-        _logger.Log($"Saving library to {_databasePath}.");
+        _glimpse.Logger.Log($"Saving library to {_databasePath}.");
         Library library = new Library(DatabaseVersion, _libraryPaths, _excludedDirectories,
             (IReadOnlyCollection<Track>) _tracks.Values, (IReadOnlyCollection<Album>) _albums.Values,
             (IReadOnlyCollection<Artist>) _artists.Values, (IReadOnlyCollection<Genre>) _genres.Values);
@@ -457,18 +460,18 @@ public class MusicLibrary : IMusicLibrary
         
         foreach (string libraryPath in _libraryPaths)
         {
-            _logger.Log($"Indexing library path: {libraryPath}");
+            _glimpse.Logger.Log($"Indexing library path: {libraryPath}");
 
             // TODO: Could probably be made more efficient using recursive-esque pattern?
             foreach (string directory in GetLibraryPaths())
             {
                 foreach (string path in Directory.GetFiles(directory))
                 {
-                    _logger.Log($"  Indexing {path}");
+                    _glimpse.Logger.Log($"  Indexing {path}");
                     _currentlyIndexedPath = path;
                     if (!_player.TryGetTrackInfoForFile(path, out TrackInfo? info))
                     {
-                        _logger.Log("    ... failed.");
+                        _glimpse.Logger.Log("    ... failed.");
                         continue;
                     }
 
@@ -521,7 +524,7 @@ public class MusicLibrary : IMusicLibrary
 
         _currentlyIndexedPath = null;
         SaveLibrary(false);
-        _logger.Log("Indexing complete!");
+        _glimpse.Logger.Log("Indexing complete!");
     }
 
     public delegate void OnUpdate();
