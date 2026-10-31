@@ -240,7 +240,7 @@ public class SettingsPopup : Popup
                                                 ImGui.PushFont(ImFontPtr.Null, 32 * Scale);
                                                 ImGui.TextUnformatted(plugin.Name);
                                                 ImGui.PopFont();
-                                                ImGui.TextUnformatted($"By {plugin.Author}");
+                                                ImGui.TextUnformatted(currentLocale.GetString("Popup.Settings.Tab.Plugins.ByAuthor", plugin.Author));
 
                                                 if (plugin.Description != null)
                                                     ImGui.TextWrapped(plugin.Description);
@@ -250,7 +250,7 @@ public class SettingsPopup : Popup
                                                 //       valid before displaying the GUI?
                                                 if (enabled)
                                                 {
-                                                    ImGui.SeparatorText("Settings");
+                                                    ImGui.SeparatorText(currentLocale.GetString("Popup.Settings.Name"));
                                                     if (Glimpse.Plugins[_currentPlugin].Instance.IsInitialized)
                                                         Glimpse.Plugins[_currentPlugin].Instance.OnGUI(_gui);
                                                 }
@@ -329,7 +329,6 @@ public class SettingsPopup : Popup
                                 ImGui.TextLink("DiscordRichPresence", "https://github.com/Lachee/discord-rpc-csharp");
                                 ImGui.TextLink("MetaBrainz.MusicBrainz", "https://github.com/Zastai/MetaBrainz.MusicBrainz");
                                 ImGui.TextLink("MetaBrainz.MusicBrainz.CoverArt", "https://github.com/Zastai/MetaBrainz.MusicBrainz.CoverArt");
-                                ImGui.TextLink("TerraFX.Interop.Windows", "https://github.com/terrafx/terrafx.interop.windows");
 
                                 ImGui.EndChild();
                             }

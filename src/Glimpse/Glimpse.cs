@@ -688,20 +688,25 @@ public class Glimpse : IGlimpse, IDisposable
                 {
                     if (TryLoadPlugin(Path.Combine(outDir, "Plugin.json"), out string id))
                     {
-                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Plugin Installed",
-                            $"Plugin \"{id}\" installed! Go to the settings to enable it."));
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                            Locale.GetString("Popup.PluginInstalled.Name"),
+                            Locale.GetString("Popup.PluginInstalled.Text", id)));
                     }
                     else
-                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Plugin Updated",
-                            $"Plugin \"{id}\" was updated but Glimpse cannot currently reload plugins.\nRestart Glimpse to load the new plugin."));
+                    {
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                            Locale.GetString("Popup.PluginUpdated.Name"),
+                            Locale.GetString("Popup.PluginUpdated.Text", id)));
+                    }
                 }
                 catch (Exception e)
                 {
 #if DEBUG
                     throw;
 #else
-                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Install Failed",
-                        $"Failed to install plugin:\n{e}"));
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                        Locale.GetString("Popup.PluginInstallFailed.Name"),
+                        Locale.GetString("Popup.PluginInstallFailed.Text", e)));
 #endif
                 }
 
@@ -735,7 +740,9 @@ public class Glimpse : IGlimpse, IDisposable
                 else
                 {
                     Logger.Log($"Attempted to do something with dropped file '{file}', but it was not a supported file.");
-                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Can't Play", "Can't play that file."));
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                        Locale.GetString("Popup.UnsupportedFile.Name"),
+                        Locale.GetString("Popup.UnsupportedFile.Text", extension)));
                 }
 
                 break;
@@ -789,14 +796,15 @@ public class Glimpse : IGlimpse, IDisposable
         catch (ReflectionTypeLoadException e)
         {
             Logger.Log($"Failed to load plugin \"{id}\":\n{e}");
-            ((GlimpsePlayer) MainWindow).AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Plugin Error",
-                $"Failed to load plugin \"{id}\" as it is incompatible with the current API version.\nIt has not been loaded. Please update to the latest version or remove the plugin."));
+            ((GlimpsePlayer) MainWindow).AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                Locale.GetString("Popup.PluginError.Name"), Locale.GetString("Popup.PluginError.IncompatibleAPI", id)));
         }
         catch (Exception e)
         {
             Logger.Log($"Failed to load plugin \"{id}\":\n{e}");
-            ((GlimpsePlayer) MainWindow).AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Plugin Error",
-                $"Failed to load plugin \"{id}\" due to error:\n{e}"));
+            ((GlimpsePlayer) MainWindow).AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                Locale.GetString("Popup.PluginError.Name"),
+                Locale.GetString("Popup.PluginError.GeneralLoadFailure", id, e)));
 #if DEBUG
             throw;
 #endif

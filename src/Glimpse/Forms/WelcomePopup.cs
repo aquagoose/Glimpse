@@ -36,6 +36,7 @@ public class WelcomePopup : Popup
 
     protected override unsafe void Update(float dt)
     {
+        Locale locale = Glimpse.Locale;
         _disableNext = false;
 
         Vector2 windowSize = ImGui.GetIO().DisplaySize;
@@ -44,7 +45,7 @@ public class WelcomePopup : Popup
         
         ImGui.SetNextWindowPos(Vector2.Zero);
         ImGui.SetNextWindowSize(windowSize);
-        if (ImGui.Begin("Welcome", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoBackground))
+        if (ImGui.Begin(locale.GetString("Popup.Welcome.Name"), ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoBackground))
         {
             ImGui.GetWindowDrawList().AddRectFilled(new Vector2(0, 0), windowSize,
                 ImGui.ColorConvertFloat4ToU32(*ImGui.GetStyleColorVec4(ImGuiCol.WindowBg) with { W = 0.75f }));
@@ -54,9 +55,9 @@ public class WelcomePopup : Popup
             {
                 if (ImGui.BeginTabBar("Tabs"))
                 {
-                    Tab("Welcome", 0, WelcomeTab);
-                    Tab("Import", 1, ImportTab);
-                    Tab("Preferences", 2, PreferencesTab);
+                    Tab(locale.GetString("Popup.Welcome.Tab.Welcome"), 0, WelcomeTab);
+                    Tab(locale.GetString("Popup.Welcome.Tab.Import"), 1, ImportTab);
+                    Tab(locale.GetString("Popup.Welcome.Tab.Preferences"), 2, PreferencesTab);
                     
                     ImGui.EndTabBar();
                 }
@@ -73,14 +74,14 @@ public class WelcomePopup : Popup
             ImGui.SetCursorPosX(right - totalButtonsWidth);
             
             ImGui.BeginDisabled(_tabIndex == 0);
-            if (ImGui.Button("Previous", buttonSize))
+            if (ImGui.Button(locale.GetString("Button.Previous"), buttonSize))
                 _tabIndex--;
             ImGui.EndDisabled();
             
             ImGui.SameLine();
 
             bool disableNext = _disableNext != null;
-            if (ImGui.Button("Next", buttonSize))
+            if (ImGui.Button(locale.GetString("Button.Next"), buttonSize))
             {
                 // TODO: This is very manual. Perhaps add a "next button" action or something?
                 if (_tabIndex == 1)
@@ -90,8 +91,9 @@ public class WelcomePopup : Popup
                     // a change to go back and add stuff.
                     if (Glimpse.Library.LibraryPaths.Count == 0)
                     {
-                        AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo, "Skip Import?",
-                            "Are you sure you want to skip importing?\nYou haven't added anything to your library.", () => _tabIndex++));
+                        AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                            locale.GetString("Popup.Welcome.SkipImport"),
+                            locale.GetString("Popup.Welcome.SkipImport.Message"), () => _tabIndex++));
                     }
                     else
                     {
@@ -142,11 +144,11 @@ public class WelcomePopup : Popup
         ImGui.BeginChild("WelcomeText", ImGuiChildFlags.AutoResizeY);
         {
             ImGui.PushFont(ImFontPtr.Null, 48);
-            ImGui.TextUnformatted("Welcome to Glimpse");
+            ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Welcome.WelcomeToGlimpse"));
             ImGui.PopFont();
 
-            ImGui.TextUnformatted("The free, fast, and extensible music player.");
-            ImGui.TextUnformatted("Let's get you started.");
+            ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Welcome.Tagline"));
+            ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Welcome.GetStarted"));
 
             ImGui.EndChild();
         }
@@ -154,20 +156,18 @@ public class WelcomePopup : Popup
 
     private void ImportTab()
     {
-        const string importOldLibraryName = "Migration Assistant";
-
         if (_hasOldLibrary)
         {
             _hasOldLibrary = false;
-            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo, importOldLibraryName,
-                "An alpha (< 0.1.0) music library was found.\nWould you like to import it?\nThe original library will NOT be deleted!",
-                ImportOldLibrary));
+            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.MigrationAssistant"),
+                Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.MigrationAssistant.Message"), ImportOldLibrary));
         }
 
         if (_manageLibraryWidget.LibraryPaths.Count == 0)
             _disableNext = true;
         
-        ImGui.TextUnformatted("Let's start by importing your music.");
+        ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.GetStarted"));
         _manageLibraryWidget.Update(Glimpse.Locale);
     }
 
@@ -224,8 +224,8 @@ public class WelcomePopup : Popup
 
         if (basePaths.Count == 0)
         {
-            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, "Error",
-                "The assistant added your songs, but could not determine any\nexisting library folders. Please add them manually!"));
+            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, Glimpse.Locale.GetString("Error"),
+                Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.MigrationAssistant.Error")));
         }
 
         _manageLibraryWidget.Refresh();

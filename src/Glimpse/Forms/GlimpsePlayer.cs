@@ -1018,7 +1018,8 @@ public class GlimpsePlayer : Window
                             _newVersionBlinker -= float.Pi * 2;
                     }
 
-                    if (ImGui.ImageButton("ReportBug", _bugButton, ScaleVec(16), Vector4.Zero, iconsColor)) Utils.OpenLink("https://github.com/aquagoose/Glimpse/issues/new?template=bug_report.md");
+                    if (ImGui.ImageButton("ReportBug", _bugButton, ScaleVec(16), Vector4.Zero, iconsColor))
+                        Utils.OpenLink("https://github.com/aquagoose/Glimpse/issues/new?template=bug_report.md");
 
                     ImGui.SetItemTooltipUnformatted(locale.GetString("Player.ReportBug"));
                     
