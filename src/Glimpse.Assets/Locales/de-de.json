@@ -48,6 +48,7 @@
         "Menu.DeleteAlbum": "Album löschen...",
         "Menu.DeleteFile": "Datei löschen...",
         "Menu.DeletePlaylist": "Playlist löschen...",
+        "Menu.Rename": null,
 
         "Button.Yes": "Ja",
         "Button.Save": "Speichern",
@@ -147,6 +148,9 @@
 
         "Popup.NewPlaylist.Name": "Neue Playlist",
         "Popup.NewPlaylist.TextBoxHint": "Name",
+
+        "Popup.RenamePlaylist.Name": null,
+        "Popup.RenamePlaylist.TextBoxHint": null,
 
         "Popup.DeletePlaylist.Name": "Playlist löschen?",
         "Popup.DeletePlaylist.Text": "Playlist \"{0}\" löschen?",

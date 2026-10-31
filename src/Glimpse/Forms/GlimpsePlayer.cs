@@ -813,7 +813,11 @@ public class GlimpsePlayer : Window
                         case AlbumView.Playlists:
                         {
                             if (ImGui.Selectable(locale.GetString("Player.Playlists.New")))
-                                AddPopup(new NewPlaylistPopup(name => CreatePlaylist(name, null)));
+                            {
+                                AddPopup(new UpdatePlaylistPopup(locale.GetString("Popup.NewPlaylist.Name"),
+                                    locale.GetString("Popup.NewPlaylist.TextBoxHint"),
+                                    locale.GetString("Button.Create"), name => CreatePlaylist(name, null)));
+                            }
 
                             if (ImGui.Selectable(locale.GetString("Player.Playlists.Favorites"), _currentAlbum == IMusicLibrary.FavoritesPlaylistName))
                                 ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
@@ -891,6 +895,22 @@ public class GlimpsePlayer : Window
                                     {
                                         ImGui.Separator();
 
+                                        if (ImGui.Selectable(locale.GetString("Menu.Rename")))
+                                        {
+                                            AddPopup(new UpdatePlaylistPopup(
+                                                locale.GetString("Popup.RenamePlaylist.Name"),
+                                                locale.GetString("Popup.RenamePlaylist.TextBoxHint"),
+                                                locale.GetString("Button.Save"),
+                                                name =>
+                                                {
+                                                    RenamePlaylist(albumName, name);
+                                                    
+                                                    // refresh the view to ensure it reflects the changes.
+                                                    // we're already in the album view so don't need to perform a check.
+                                                    ChangeView(AlbumView.Albums);
+                                                }, albumName));
+                                        }
+                                            
                                         if (ImGui.Selectable(locale.GetString("Menu.DeletePlaylist")))
                                         {
                                             AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
@@ -904,7 +924,8 @@ public class GlimpsePlayer : Window
                                                             locale.GetString("Popup.DeletePlaylist.Failed.Text")));
                                                     }
 
-                                                    // we're already in the album view so don't need to perform the check.
+                                                    // refresh the view to ensure it reflects the changes.
+                                                    // we're already in the album view so don't need to perform a check.
                                                     ChangeView(AlbumView.Albums);
                                                 }));
                                         }
@@ -1145,7 +1166,11 @@ public class GlimpsePlayer : Window
                                     if (ImGui.BeginMenu(locale.GetString("Menu.AddToPlaylist")))
                                     {
                                         if (ImGui.MenuItem(locale.GetString("Player.Playlists.New")))
-                                            AddPopup(new NewPlaylistPopup(name => CreatePlaylist(name, path)));
+                                        {
+                                            AddPopup(new UpdatePlaylistPopup(locale.GetString("Popup.NewPlaylist.Name"),
+                                                locale.GetString("Popup.NewPlaylist.TextBoxHint"),
+                                                locale.GetString("Button.Create"), name => CreatePlaylist(name, path)));
+                                        }
 
                                         if (_playlists is not Dictionary<string, Playlist> playlists)
                                         {
@@ -1620,6 +1645,21 @@ public class GlimpsePlayer : Window
         // refresh the view if necessary
         if (_currentView == AlbumView.Playlists)
             ChangeView(AlbumView.Albums);
+    }
+
+    private void RenamePlaylist(string from, string to)
+    {
+        if (from == to)
+            return;
+        
+        // ignore the rename if it fails for whatever reason
+        if (!Glimpse.Library.TryGetPlaylist(from, out Playlist? playlist))
+            return;
+
+        Playlist newPlaylist = playlist with { Name = to };
+        // only delete the old playlist if the update was successful
+        if (Glimpse.Library.UpdatePlaylist(newPlaylist))
+            Glimpse.Library.TryDeletePlaylist(from);
     }
 
     private bool TryGetTracks(string name, [NotNullWhen(true)] out HashSet<string>? tracks)
