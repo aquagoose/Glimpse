@@ -821,6 +821,26 @@ public class GlimpsePlayer : Window
                             if (ImGui.BeginPopupContextItem())
                             {
                                 ShowAlbumEntrySharedContextMenu(IMusicLibrary.FavoritesPlaylistName);
+                                
+                                ImGui.Separator();
+
+                                
+                                if (ImGui.Selectable(locale.GetString("Menu.ClearFavorites")))
+                                {
+                                    AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo, locale.GetString("Popup.ClearFavorites.Name"), locale.GetString("Popup.ClearPlaylist.Text"),
+                                        () =>
+                                        {
+                                            Playlist favorites = GetOrCreateFavoritesPlaylist();
+                                            
+                                            favorites.Tracks.Clear();
+                                            Glimpse.Library.UpdatePlaylist(favorites);
+                                    
+                                            // refresh & show the change if the current view is the favourites playlist
+                                            if (_currentView == AlbumView.Playlists && _currentAlbum == IMusicLibrary.FavoritesPlaylistName)
+                                                ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
+                                        }));
+                                }
+                                
                                 ImGui.EndPopup();
                             }
 

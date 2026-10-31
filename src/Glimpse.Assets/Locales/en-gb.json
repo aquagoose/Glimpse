@@ -40,6 +40,7 @@
         "Menu.ShuffleAll": "Shuffle All",
         "Menu.AddToFavorites": "Add to Favourites",
         "Menu.RemoveFromFavorites": "Remove from Favourites",
+        "Menu.ClearFavorites": "Clear Favourites...",
         "Menu.AddToPlaylist": "Add to Playlist",
         "Menu.RemoveFromLibrary": "Remove From Library...",
         "Menu.ShowInExplorer": "Show File in {0}",
@@ -117,6 +118,9 @@
         "Popup.DeletePlaylist.Text": "Delete playlist \"{0}\"?",
         "Popup.DeletePlaylist.Failed.Name": "Failed",
         "Popup.DeletePlaylist.Failed.Text": "Failed to delete playlist.\nIt may have already been deleted.",
+        
+        "Popup.ClearFavorites.Name": "Clear Favourites?",
+        "Popup.ClearPlaylist.Text": "Clear the favourites playlist?",
 
         "Widget.ManageLibrary.AddFolders.Tooltip": "Add Folders to Library",
         "Widget.ManageLibrary.RemoveSelectedFolder.Tooltip": "Remove selected folder from library",
