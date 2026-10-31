@@ -16,6 +16,7 @@
         "Rating": "Bewertung",
         "LastPlayed": "Letzte Wiedergabe",
         "FileName": "Dateiname",
+        "Error": null,
 
         "Player.UpdateAvailable": "Version {0} ist verfügbar!",
         "Player.ReportBug": "Fehler melden",
@@ -40,6 +41,7 @@
         "Menu.ShuffleAll": "Alle mischen",
         "Menu.AddToFavorites": "Zu Favoriten hinzufügen",
         "Menu.RemoveFromFavorites": "Aus Favoriten entfernen",
+        "Menu.ClearFavorites": null,
         "Menu.AddToPlaylist": "Zu Playlist hinzufügen",
         "Menu.RemoveFromLibrary": "Aus Bibliothek entfernen...",
         "Menu.ShowInExplorer": "Datei in {0} anzeigen",
@@ -54,6 +56,8 @@
         "Button.Ok": "OK",
         "Button.Close": "Schließen",
         "Button.Create": "Erstellen",
+        "Button.Next": null,
+        "Button.Previous": null,
         "Checkbox.Enabled": "Aktiviert",
 
         "Popup.Settings.Name": "Einstellungen",
@@ -76,12 +80,15 @@
         "Popup.Settings.Tab.Appearance.Misc": "Sonstiges",
         "Popup.Settings.Tab.Appearance.ConfineAlbumArtToSquare": "Albumcover auf ein Quadrat beschränken",
         "Popup.Settings.Tab.Appearance.ConfineAlbumArtToSquare.Tooltip": "Das Albumcover wird immer in einem Quadrat angezeigt.\nWenn deaktiviert, passt sich die Steuerungsleiste an das\nAlbumcover an (im vernünftigen Rahmen).",
+        "Popup.Settings.Tab.Appearance.SaveWindowStateOnExit": null,
+        "Popup.Settings.Tab.Appearance.SaveWindowStateOnExit.Tooltip": null,
         "Popup.Settings.Tab.Player": "Player",
         "Popup.Settings.Tab.Player.PlaybackHeading": "Wiedergabe",
         "Popup.Settings.Tab.Player.Volume": "Lautstärke",
         "Popup.Settings.Tab.Player.DeviceHeading": "Gerät",
         "Popup.Settings.Tab.Plugins": "Plugins",
         "Popup.Settings.Tab.Plugins.NoneAvailable": "Keine Plugins verfügbar.",
+        "Popup.Settings.Tab.Plugins.ByAuthor": null,
         "Popup.Settings.Tab.About": "Über",
         "Popup.Settings.Tab.About.AppName": "Glimpse {0}",
         "Popup.Settings.Tab.About.Copyright": "2026 aquagoose",
@@ -91,6 +98,20 @@
         "Popup.Settings.Tab.About.Repository": "GitHub",
         "Popup.Settings.Tab.About.Discord": "Discord",
         "Popup.Settings.Tab.About.OpenSourceLibraries": "Open-Source-Bibliotheken",
+
+        "Popup.Welcome.Name": null,
+        "Popup.Welcome.SkipImport": null,
+        "Popup.Welcome.SkipImport.Message": null,
+        "Popup.Welcome.Tab.Welcome": null,
+        "Popup.Welcome.Tab.Welcome.WelcomeToGlimpse": null,
+        "Popup.Welcome.Tab.Welcome.Tagline": null,
+        "Popup.Welcome.Tab.Welcome.GetStarted": null,
+        "Popup.Welcome.Tab.Import": null,
+        "Popup.Welcome.Tab.Import.GetStarted": null,
+        "Popup.Welcome.Tab.Import.MigrationAssistant": null,
+        "Popup.Welcome.Tab.Import.MigrationAssistant.Message": null,
+        "Popup.Welcome.Tab.Import.MigrationAssistant.Error": null,
+        "Popup.Welcome.Tab.Preferences": null,
         
         "Popup.AddDirs.Name": "Ordner hinzufügen",
         
@@ -103,6 +124,22 @@
         "Popup.FileNotFound.Name": "Datei nicht gefunden",
         "Popup.FileNotFound.Text": "Der Song \"{0}\" kann nicht abgespielt werden.\nDies könnte daran liegen, dass die Datei verschoben oder gelöscht wurde.",
 
+        "Popup.PluginInstalled.Name": null,
+        "Popup.PluginInstalled.Text": null,
+
+        "Popup.PluginInstallFailed.Name": null,
+        "Popup.PluginInstallFailed.Text": null,
+
+        "Popup.PluginUpdated.Name": null,
+        "Popup.PluginUpdated.Text": null,
+
+        "Popup.PluginError.Name": null,
+        "Popup.PluginError.GeneralLoadFailure": null,
+        "Popup.PluginError.IncompatibleAPI": null,
+
+        "Popup.UnsupportedFile.Name": null,
+        "Popup.UnsupportedFile.Text": null,
+        
         "Popup.ManageLibrary.Name": "Bibliothek verwalten",
         "Popup.ManageLibrary.UpdateButton": "Aktualisieren",
         "Popup.ManageLibrary.UpdateButton.Tooltip": "Musikbibliothek aktualisieren",
@@ -116,11 +153,19 @@
         "Popup.DeletePlaylist.Failed.Name": "Fehlgeschlagen",
         "Popup.DeletePlaylist.Failed.Text": "Playlist konnte nicht gelöscht werden.\nMöglicherweise wurde sie bereits gelöscht.",
 
+        "Popup.ClearFavorites.Name": null,
+        "Popup.ClearPlaylist.Text": null,
+        
         "Widget.ManageLibrary.AddFolders.Tooltip": "Ordner zur Bibliothek hinzufügen",
         "Widget.ManageLibrary.RemoveSelectedFolder.Tooltip": "Ausgewählten Ordner aus der Bibliothek entfernen",
         "Widget.ManageLibrary.RefreshButton.Tooltip": "Aktualisieren",
         "Widget.ManageLibrary.RemoveAllButton": "Alle entfernen",
         "Widget.ManageLibrary.RemoveAllButton.Tooltip": "ALLE Ordner aus Ihrer Bibliothek entfernen",
-        "Widget.ManageLibrary.PathNotFound": "Pfad konnte nicht gefunden werden. Wurde er verschoben oder gelöscht?"
+        "Widget.ManageLibrary.PathNotFound": "Pfad konnte nicht gefunden werden. Wurde er verschoben oder gelöscht?",
+
+        "Setting.Library.RefreshLibraryOnStartup": null,
+        "Setting.Library.RefreshLibraryOnStartup.Tooltip": null,
+        "Setting.Library.RemoveMissingFilesFromLibrary": null,
+        "Setting.Library.RemoveMissingFilesFromLibrary.Tooltip": null
     }
 }

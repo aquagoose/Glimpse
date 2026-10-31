@@ -22,7 +22,7 @@ public class Locale : ILocale
 
     public string GetString(string str)
     {
-        if (!Strings.TryGetValue(str, out string? localeString) && !BackupLocale.Strings.TryGetValue(str, out localeString))
+        if ((!Strings.TryGetValue(str, out string? localeString) || string.IsNullOrEmpty(localeString)) && !BackupLocale.Strings.TryGetValue(str, out localeString))
             return str;
 
         return localeString;
@@ -30,7 +30,7 @@ public class Locale : ILocale
 
     public string GetString(string str, params object[] format)
     {
-        if (!Strings.TryGetValue(str, out string? localeString) && !BackupLocale.Strings.TryGetValue(str, out localeString))
+        if ((!Strings.TryGetValue(str, out string? localeString) || string.IsNullOrEmpty(localeString)) && !BackupLocale.Strings.TryGetValue(str, out localeString))
             return str;
             
         return string.Format(localeString, format);
