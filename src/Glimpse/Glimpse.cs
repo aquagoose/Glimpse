@@ -9,6 +9,7 @@ using System.Runtime.Loader;
 using System.Text.Json.Nodes;
 using Glimpse.API;
 using Glimpse.API.Library;
+using Glimpse.Assets;
 using Glimpse.Audio;
 using Glimpse.Configs;
 using Glimpse.Forms;
@@ -174,19 +175,23 @@ public class Glimpse : IGlimpse, IDisposable
             Locale = Locale.LoadLocale(defaultLocale);
             Config.General.Language = defaultLocale;
         }
-
-        /*if (!ConfigManager.TryGetConfig(MusicDatabase.DatabaseName, out Database))
-        {
-            Database = new MusicDatabase();
-            ConfigManager.WriteConfig(MusicDatabase.DatabaseName, Database);
-        }*/
-
-        //Database!.Logger = Logger;
-        //Database!.Refresh();
+        
         Library = new MusicLibrary(this, Player);
-        //Database.Index(); // todo setting to index on startup
         
         AddWindow(window);
+
+        // todo 2.0: minimize glimpse to tray
+        /*Stream stream = Asset.GetAssetStream("Icons.Glimpse.png");
+        byte[] data = new byte[stream.Length];
+        stream.ReadExactly(data);
+        SDL.Surface icon;
+        fixed (byte* pData = data)
+        {
+            SDL.IOStream io = SDL.IOFromConstMem((nint) pData, (nuint) data.Length);
+            icon = SDL.LoadPNGIO(io, true);
+        }
+
+        SDL.Tray tray = SDL.CreateTray(icon, "Glimpse");*/
         
 #if !PUBLISH_AOT
         Logger.Log("Searching for 'Plugins' directory.");
@@ -567,8 +572,18 @@ public class Glimpse : IGlimpse, IDisposable
             }*/
 
             case SDL.EventType.Quit:
-                _alive = false;
+            {
+                if (Player.QueuedTracks.Count > 0)
+                {
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                        Locale.GetString("Popup.ExitConfirmation.Name"),
+                        Locale.GetString("Popup.ExitConfirmation.Text"), () => _alive = false));
+                }
+                else
+                    _alive = false;
+                
                 break;
+            }
 
             case SDL.EventType.MouseMotion:
             {

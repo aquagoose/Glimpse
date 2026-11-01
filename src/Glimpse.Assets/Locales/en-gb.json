@@ -140,6 +140,9 @@
         
         "Popup.UnsupportedFile.Name": "Can't Play",
         "Popup.UnsupportedFile.Text": "Unsupported file format \"{0}\".",
+        
+        "Popup.ExitConfirmation.Name": "Exit?",
+        "Popup.ExitConfirmation.Text": "Are you sure you want to exit?\nThere are songs in the queue.",
 
         "Popup.ManageLibrary.Name": "Manage Library",
         "Popup.ManageLibrary.UpdateButton": "Update",

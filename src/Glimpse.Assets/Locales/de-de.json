@@ -140,6 +140,9 @@
 
         "Popup.UnsupportedFile.Name": null,
         "Popup.UnsupportedFile.Text": null,
+
+        "Popup.ExitConfirmation.Name": null,
+        "Popup.ExitConfirmation.Text": null,
         
         "Popup.ManageLibrary.Name": "Bibliothek verwalten",
         "Popup.ManageLibrary.UpdateButton": "Aktualisieren",
