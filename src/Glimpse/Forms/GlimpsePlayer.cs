@@ -845,7 +845,10 @@ public class GlimpsePlayer : Window
                             }
 
                             if (ImGui.Selectable(locale.GetString("Player.Playlists.Favorites"), _currentAlbum == IMusicLibrary.FavoritesPlaylistName))
+                            {
                                 ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
+                                switchToTrackList = true;
+                            }
 
                             if (ImGui.BeginPopupContextItem())
                             {
