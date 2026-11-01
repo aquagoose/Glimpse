@@ -156,7 +156,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
             case QueueSlot.NextTrack:
                 InsertTrackAtIndex(_currentTrackIndex + 1, path);
                 break;
-            case QueueSlot.Clear: // todo i'm not sure this is ever actually used, so it can probably be removed
+            case QueueSlot.Clear:
                 QueuedTracks.Clear();
                 QueuedTracks.Add(path);
                 PlayOrder.Clear();
@@ -210,6 +210,13 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         }
         else if (_currentTrackIndex > queueIndex)
             _currentTrackIndex--;
+    }
+
+    public bool Play(string path)
+    {
+        // todo BREAKING CHANGE: QueueTrack should return a boolean value!
+        QueueTrack(path, QueueSlot.Clear, true);
+        return true;
     }
 
     public bool Play(int queueIndex)

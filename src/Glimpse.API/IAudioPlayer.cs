@@ -97,6 +97,13 @@ public interface IAudioPlayer
     public void RemoveTrackFromQueue(int queueIndex);
     
     /// <summary>
+    /// Clear the queue and play a track from the given path.
+    /// </summary>
+    /// <param name="path">The path of the track to play.</param>
+    /// <returns>True if the track is playing, false otherwise.</returns>
+    public bool Play(string path);
+    
+    /// <summary>
     /// Play the track at the given index.
     /// </summary>
     /// <param name="index">The index in the queue to change to.</param>
