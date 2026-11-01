@@ -17,7 +17,7 @@ on:
 jobs:
   publish:
     name: "Publish Glimpse"
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     env:
       RELEASE_VERSION: ${{ github.event.release.tag_name }}
     steps:
@@ -28,7 +28,13 @@ jobs:
           fetch-depth: 0
           
       - name: "Install deps"
-        run: brew install nsis
+        run: sudo apt install -y nsis
+
+      - name: "Download appimagetool"
+        run: |
+          curl -LO https://github.com/AppImage/appimagetool/releases/latest/download/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          chmod +x publish.cs
 
       - name: "Install .NET"
         uses: actions/setup-dotnet@v4
@@ -36,20 +42,27 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: "Publish Windows x64"
-        run: ./glimpsebuild.sh "Glimpse-$RELEASE_VERSION" win-x64 $RELEASE_VERSION
+        run: ./publish.cs -o "Glimpse-$RELEASE_VERSION-win-x64" -r win-x64 $RELEASE_VERSION
 
       - name: "Publish Linux x64"
-        run: ./glimpsebuild.sh "Glimpse-$RELEASE_VERSION" linux-x64 $RELEASE_VERSION
+        run: ./publish.cs -o "Glimpse-$RELEASE_VERSION-linux-x64" -r linux-x64 $RELEASE_VERSION
         
       - name: "Public macOS arm64"
-        run: ./glimpsebuild.sh "Glimpse-$RELEASE_VERSION" osx-arm64 $RELEASE_VERSION
+        run: ./publish.cs -o "Glimpse-$RELEASE_VERSION-osx-arm64" -r osx-arm64 $RELEASE_VERSION
+
+      - name: "Combine everything"
+        run: |
+          mkdir Publish/
+          cp -r "Glimpse-$RELEASE_VERSION-win-x64"/* Publish/
+          cp -r "Glimpse-$RELEASE_VERSION-linux-x64"/* Publish/
+          cp -r "Glimpse-$RELEASE_VERSION-osx-arm64"/* Publish/
 
       - name: Create Release
         uses: ncipollo/release-action@v1.20.0
         with:
           allowUpdates: true
           artifactErrorsFailBuild: true
-          artifacts: "*.zip,*.tar.gz,packaging/windows/*.exe"
+          artifacts: "Publish/*"
           omitBodyDuringUpdate: true
           omitDraftDuringUpdate: true
           omitNameDuringUpdate: true

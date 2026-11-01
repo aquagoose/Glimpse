@@ -43,10 +43,11 @@ public static class CodecUtils
 
         uint trackNumber = file.Tag.Track;
         string title = file.Tag.Title ?? Path.GetFileNameWithoutExtension(path); // Better UX to show filename if song is not recognized. TODO: Put this in TrackInfo itself. Or perhaps handle it from within the UI?
-        string artist = file.Tag.FirstPerformer;
-        string album = file.Tag.Album;
-        TimeSpan length = file.Properties.Duration;
-        string genre = file.Tag.FirstGenre;
+        string? artist = file.Tag.FirstPerformer;
+        string? album = file.Tag.Album;
+        TimeSpan? length = file.Properties.Duration;
+        string? genre = file.Tag.FirstGenre;
+        string? albumArtist = file.Tag.FirstAlbumArtist;
         
         TrackInfo.Image albumArt = null;
         if (file.Tag.Pictures is { Length: > 0 })
@@ -55,6 +56,6 @@ public static class CodecUtils
             albumArt = new TrackInfo.Image(picture.Data?.Data, picture.Filename, picture.MimeType);
         }
 
-        return new TrackInfo(trackNumber, title, artist, album, length, genre, albumArt);
+        return new TrackInfo(trackNumber, title, artist, album, length, genre, albumArtist, albumArt);
     }
 }

@@ -14,9 +14,12 @@ public class TrackInfo
 
     public readonly string? Genre;
 
+    public readonly string? AlbumArtist;
+
     public readonly Image? AlbumArt;
 
-    public TrackInfo(uint? trackNumber, string? title, string? artist, string? album, TimeSpan? length, string? genre, Image? albumArt)
+    public TrackInfo(uint? trackNumber, string? title, string? artist, string? album, TimeSpan? length, string? genre,
+        string? albumArtist, Image? albumArt)
     {
         TrackNumber = trackNumber;
         Title = title;
@@ -24,6 +27,7 @@ public class TrackInfo
         Album = album;
         Length = length;
         Genre = genre;
+        AlbumArtist = albumArtist;
         AlbumArt = albumArt;
     }
 

@@ -7,7 +7,7 @@ public interface IConfigManager
         get
         {
 #if DEBUG
-            return "Config";
+            return Path.Combine(AppContext.BaseDirectory, "Config");
 #else
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Glimpse");
 #endif

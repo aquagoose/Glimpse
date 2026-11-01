@@ -5,6 +5,24 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        
+        <Version>0.1.2</Version>
+        <PackageId>GlimpsePlayer.API</PackageId>
+        <Description>The official API for the Glimpse Music Player.</Description>
+        <Authors>aquagoose</Authors>
+        <PackageTags>glimpse;music;api;player;audio</PackageTags>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageIcon>Glimpse.png</PackageIcon>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/aquagoose/Glimpse</RepositoryUrl>
+        <PackageProjectUrl>https://glimpseplayer.com/</PackageProjectUrl>
     </PropertyGroup>
+    
+    <ItemGroup>
+        <None Include="$(SolutionDir)/src/Glimpse.Assets/Icons/Glimpse.png" Pack="true" PackagePath="" />
+        <None Include="$(SolutionDir)README.md" Pack="true" PackagePath="" />
+        <None Include="LICENSE" Pack="true" PackagePath="" />
+    </ItemGroup>
 
 </Project>

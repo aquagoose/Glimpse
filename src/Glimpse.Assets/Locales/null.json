@@ -1,7 +1,0 @@
-// null locale containing no strings, used for debugging to find out strings
-// that are not yet covered by the locale.
-{
-  "ID": "null",
-  "DisplayName": "null",
-  "Strings": {}
-}

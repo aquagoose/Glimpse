@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Globalization;
 using System.Numerics;
@@ -26,6 +27,10 @@ public class GlimpsePlayer : Window
     private ImGuiStyle _defaultStyle;
     private Theme.ThemeConfig _themeConfig;
 
+    private List<CustomButton> _customButtons;
+    private List<ContextMenuItem> _customTrackContextMenuItems;
+    private List<ContextMenuItem> _customAlbumContextMenuItems;
+
     private Size _restoreSize;
     private bool _miniplayer;
 
@@ -37,11 +42,22 @@ public class GlimpsePlayer : Window
     private AlbumView _currentView;
     private SizedCollection<Track> _currentTracks;
     private SizedCollection<string> _albums;
+
+    // set this value to false, to update the play queue tab.
+    // after the queue has updated, it will set this value to true, to prevent it updating every frame.
+    // setting this to false will force the queue to update, for example when a song is added to the queue.
+    private bool _hasUpdatedQueue;
+    private List<Track> _queuedTracks;
+
+    private Playlist? _favoritesPlaylist;
+    private Dictionary<string, Playlist>? _playlists;
     
     private bool _wasSeekClicked;
     private double? _seekPosition;
     private int _currentRowHover;
     private int _currentRatingHover;
+
+    private float _indexingProgress;
 
     private Image _playButton;
     private Image _pauseButton;
@@ -56,6 +72,8 @@ public class GlimpsePlayer : Window
     private Image _shuffleButton;
     private Image _repeatButton;
     private Image _repeatOneButton;
+    private Image _heart;
+    private Image _heartFilled;
 
     private Image _defaultAlbumArt;
     private Image? _albumArt;
@@ -68,6 +86,12 @@ public class GlimpsePlayer : Window
     
     public GlimpsePlayer()
     {
+        _customButtons = [];
+        _customTrackContextMenuItems = [];
+        _customAlbumContextMenuItems = [];
+
+        _queuedTracks = [];
+        
 #if DEBUG
         Title = "Glimpse DEBUG";
 #else
@@ -79,6 +103,13 @@ public class GlimpsePlayer : Window
 
     protected override unsafe void Initialize()
     {
+        if (Glimpse.ConfigManager.TryGetConfig(StateConfig.ConfigName, out StateConfig state))
+        {
+            Position = state.Position;
+            Size = state.Size;
+            Maximized = state.Maximized;
+        }
+
         _playButton = Renderer.CreateImage("asset://Icons.PlayButton.png");
         _pauseButton = Renderer.CreateImage("asset://Icons.PauseButton.png");
         _skipButton = Renderer.CreateImage("asset://Icons.SkipButton.png");
@@ -92,6 +123,8 @@ public class GlimpsePlayer : Window
         _shuffleButton = Renderer.CreateImage("asset://Icons.Shuffle.png");
         _repeatButton = Renderer.CreateImage("asset://Icons.Repeat.png");
         _repeatOneButton = Renderer.CreateImage("asset://Icons.RepeatOne.png");
+        _heart = Renderer.CreateImage("asset://Icons.Heart.png");
+        _heartFilled = Renderer.CreateImage("asset://Icons.Heart-Filled.png");
         
         Glimpse.Player.TrackChanged += PlayerOnTrackChanged;
         Glimpse.Player.StateChanged += PlayerOnStateChanged;
@@ -146,7 +179,6 @@ public class GlimpsePlayer : Window
         }
 
         _hasIncrementedPlayCount = true;
-        // TODO: I don't like this.
         if (Glimpse.Library.TryGetTrack(player.CurrentTrackPath, out Track? track))
         {
             track.PlayCount++;
@@ -315,6 +347,7 @@ public class GlimpsePlayer : Window
                 ImGui.Image(albumArt, size);
                 ImGui.EndChild();
             }
+            ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.MiniPlayer"));
             
             if (ImGui.IsItemHovered())
                 ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
@@ -351,6 +384,7 @@ public class GlimpsePlayer : Window
                         {
                             switchToQueueView = true;
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.GoToQueue"));
 
                         if (ImGui.TextButton(player.CurrentTrack?.Artist ?? locale.GetString("UnknownArtist")) &&
                             player.CurrentTrack?.Artist != null)
@@ -360,7 +394,7 @@ public class GlimpsePlayer : Window
                             ChangeView(AlbumView.Artists);
                             ChangeAlbum(player.CurrentTrack.Artist);
                         }
-
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.GoToArtist"));
 
                         if (ImGui.TextButton(player.CurrentTrack?.Album ?? locale.GetString("UnknownAlbum")) &&
                             player.CurrentTrack?.Album != null)
@@ -370,6 +404,7 @@ public class GlimpsePlayer : Window
                             ChangeView(AlbumView.Albums);
                             ChangeAlbum(player.CurrentTrack.Album);
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.GoToAlbum"));
                     }
 
                     ImGui.EndChild();
@@ -380,8 +415,9 @@ public class GlimpsePlayer : Window
                 float miniplayerScale = _miniplayer ? 0.75f : 1.0f;
                 
                 Vector2 iconSize = new Vector2(32) * Scale * miniplayerScale;
-                // Even though there are 4 icons, 3 icons makes it *feel* more centered, even though it's shifted to the right.
-                const int numIcons = 3;
+                // there are 5 icons but 4 makes it centered. no i don't know why!
+                // miniplayer moves the heart next to the shuffle/repeat icons, so we reduce the icon count by 1.
+                int numIcons = _miniplayer ? 3 : 4;
                 float spacing = ImGui.GetStyle().ItemSpacing.X * miniplayerScale;
                 float padding = ImGui.GetStyle().FramePadding.X * miniplayerScale;
                 float totalButtonsWidth = (iconSize.X + spacing + padding) * numIcons;
@@ -410,11 +446,18 @@ public class GlimpsePlayer : Window
                     ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Zero);
                     ImGui.PushStyleColor(ImGuiCol.ButtonHovered, buttonColor);
 
+                    if (!_miniplayer)
+                    {
+                        FavoriteButton(player, locale, iconSize, iconsColor);
+                        ImGui.SameLine();
+                    }
+
                     if (ImGui.ImageButton("BackwardButton", _skipButton, iconSize, new Vector2(1, 0),
                             new Vector2(0, 1), Vector4.Zero, iconsColor))
                     {
                         player.Previous();
                     }
+                    ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.PreviousTrack"));
 
                     ImGui.SameLine();
 
@@ -422,11 +465,13 @@ public class GlimpsePlayer : Window
                     {
                         if (ImGui.ImageButton("PauseButton", _pauseButton, iconSize, Vector4.Zero, iconsColor))
                             player.Pause();
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Pause"));
                     }
                     else
                     {
                         if (ImGui.ImageButton("PlayButton", _playButton, iconSize, Vector4.Zero, iconsColor))
                             player.Play();
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Play"));
                     }
 
                     ImGui.SameLine();
@@ -435,6 +480,7 @@ public class GlimpsePlayer : Window
                     {
                         player.Next();
                     }
+                    ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.NextTrack"));
 
                     if (!_miniplayer)
                     {
@@ -443,6 +489,7 @@ public class GlimpsePlayer : Window
                         {
                             player.Stop();
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Stop"));
                     }
 
                     ImGui.PopStyleColor();
@@ -456,7 +503,7 @@ public class GlimpsePlayer : Window
                 Vector2 cursorPos = ImGui.GetCursorPos();
 
                 Vector2 contentRegion = ImGui.GetContentRegionAvail();
-                ImGui.SetCursorPos(new Vector2(contentRegion.X - (_miniplayer ? 55 : 150) * Scale, _miniplayer ? 20 : 20));
+                ImGui.SetCursorPos(new Vector2(contentRegion.X - (_miniplayer ? 75 : 150) * Scale, 20));
                 //if (!_miniplayer)
                 {
                     ImGui.BeginChild("VolumeDock", ImGuiChildFlags.AutoResizeY);
@@ -471,8 +518,16 @@ public class GlimpsePlayer : Window
                         Vector4 repeatButtonTint = iconsColor;
                         if (repeat == RepeatMode.Off)
                             repeatButtonTint.W = 0.5f;
-                            
+
                         ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0, 0, 0, 0));
+
+                        // move the favorite button up to the "volume dock" if we're in the mini player
+                        if (_miniplayer)
+                        {
+                            FavoriteButton(player, locale, ScaleVec(16) * miniplayerScale, iconsColor);
+                            ImGui.SameLine(0, 0);
+                        }
+
                         if (ImGui.ImageButton("ShuffleButton", _shuffleButton, ScaleVec(16) * miniplayerScale, Vector4.Zero, shuffleButtonTint))
                         {
                             player.Shuffle = shuffle switch
@@ -481,7 +536,15 @@ public class GlimpsePlayer : Window
                                 ShuffleMode.Default => ShuffleMode.Off,
                                 _ => throw new ArgumentOutOfRangeException()
                             };
+
+                            _hasUpdatedQueue = false; // refresh the queue layout to show the newly shuffled/unshuffled queue
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString(player.Shuffle switch
+                        {
+                            ShuffleMode.Off => "Tooltip.ShuffleOff",
+                            ShuffleMode.Default => "Tooltip.ShuffleOn",
+                            _ => throw new ArgumentOutOfRangeException()
+                        }));
                         ImGui.SameLine(0, 0);
                         if (ImGui.ImageButton("RepeatButton", repeat == RepeatMode.RepeatOne ? _repeatOneButton : _repeatButton, ScaleVec(16) * miniplayerScale, Vector4.Zero, repeatButtonTint))
                         {
@@ -494,13 +557,20 @@ public class GlimpsePlayer : Window
                                 _ => throw new ArgumentOutOfRangeException()
                             };
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString(player.Repeat switch
+                        {
+                            RepeatMode.Off => "Tooltip.RepeatOff",
+                            RepeatMode.RepeatQueue => "Tooltip.RepeatAll",
+                            RepeatMode.RepeatOne => "Tooltip.RepeatOne",
+                            _ => throw new ArgumentOutOfRangeException()
+                        }));
                         ImGui.PopStyleColor();
 
                         //if (!_miniplayer)
                         {
-                            int volume = (int) (Glimpse.Player.Volume * 100);
+                            float volume = Glimpse.Player.Volume;
+                            string format;
 
-                            string format = "%d";
                             ImGuiSliderFlags sliderFlags = ImGuiSliderFlags.None;
                             if (_miniplayer)
                             {
@@ -517,13 +587,13 @@ public class GlimpsePlayer : Window
                                 ImGui.SameLine(0, 2);
                                 contentRegion = ImGui.GetContentRegionAvail();
                                 ImGui.SetNextItemWidth(contentRegion.X);
+                                format = ((int) (volume * 100)).ToString();
                             }
-                            
-                            if (ImGui.SliderInt("##Volume", ref volume, 0, 100, format, sliderFlags))
+
+                            if (ImGui.SliderFloat("##Volume", ref volume, 0, 1, format, sliderFlags))
                             {
-                                float fVol = (float) volume / 100;
-                                Glimpse.Player.Volume = fVol;
-                                Glimpse.Config.Audio.Volume = fVol;
+                                Glimpse.Player.Volume = volume;
+                                Glimpse.Config.Audio.Volume = volume;
                             }
 
                             if (_miniplayer)
@@ -531,6 +601,8 @@ public class GlimpsePlayer : Window
                                 ImGui.PopFont();
                                 ImGui.PopStyleVar();
                             }
+                            
+                            ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Volume"));
                         }
 
                         if (!_miniplayer)
@@ -567,6 +639,7 @@ public class GlimpsePlayer : Window
                     Vector2 globalCursorPos = ImGui.GetCursorScreenPos();
                     float width = contentRegion.X - elapsedTextSize.X - lengthTextSize.X - (int) (20 * Scale);
                     ImGui.ProgressBar((float) (position / length), new Vector2(width, 10 * Scale), "");
+                    ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Seek"));
                     
                     // ProgressBars in ImGui don't have any slider-like behaviours. Before we were using a slider and it
                     // worked well, but progress bars look so much better.
@@ -696,19 +769,126 @@ public class GlimpsePlayer : Window
                     ImGui.EndTabItem();
                 }
 
-                ImGui.BeginDisabled();
                 if (ImGui.BeginTabItemTooltip("\ue05f##Playlists", locale.GetString("Player.ViewSelect.Playlists")))
                 {
+                    if (_currentView != AlbumView.Playlists)
+                        ChangeView(AlbumView.Playlists);
                     ImGui.EndTabItem();
                 }
-                ImGui.EndDisabled();
+
+                // make this a common function as the Favorites playlist is separate from the other buttons yet requires
+                // *most of* the same context menu functionality
+                void ShowAlbumEntrySharedContextMenu(string albumName)
+                {
+                    if (ImGui.Selectable(locale.GetString("Menu.PlayAll")))
+                    {
+                        if (TryGetTracks(albumName, out HashSet<string>? tracks))
+                        {
+                            // turn shuffle off as the player will auto shuffle once playback starts.
+                            player.Shuffle = ShuffleMode.Off;
+                            player.QueueTracks(tracks, QueueSlot.Clear);
+                            int trackIndex = 0;
+                            while (!player.Play(trackIndex++)) ;
+                        }
+                    }
+
+                    if (ImGui.Selectable(locale.GetString("Menu.ShuffleAll")))
+                    {
+                        if (TryGetTracks(albumName, out HashSet<string>? tracks))
+                        {
+                            int numTracks = tracks.Count;
+                            player.Shuffle = ShuffleMode.Default;
+                            player.QueueTracks(tracks, QueueSlot.Clear);
+                            while (!player.Play(Random.Shared.Next(numTracks))) ;
+                        }
+                    }
+
+                    if (ImGui.Selectable(locale.GetString("Menu.AddAllToQueue")))
+                    {
+                        if (TryGetTracks(albumName, out HashSet<string>? tracks))
+                        {
+                            player.QueueTracks(tracks, QueueSlot.AtEnd);
+                            _hasUpdatedQueue = false; // force update of the queue if its the current view
+                            if (player.TrackState == TrackState.Stopped)
+                            {
+                                int trackIndex = 0;
+                                while (!player.Play(trackIndex++)) ;
+                            }
+                        }
+                    }
+                    
+                    if (_customAlbumContextMenuItems.Count > 0)
+                    {
+                        ImGui.Separator();
+                        
+                        foreach (ContextMenuItem item in _customAlbumContextMenuItems)
+                        {
+                            if (ImGui.Selectable(item.Text))
+                                item.OnClick();
+                            if (item.Tooltip != null)
+                                ImGui.SetItemTooltipUnformatted(item.Tooltip);
+                        }
+                    }
+                }
                 
                 ImGui.BeginChild("AlbumList", ImGuiWindowFlags.HorizontalScrollbar);
                 {
-                    if (ImGui.Selectable(locale.GetString("Player.Albums.ShowAll"), _currentAlbum == null))
+                    switch (_currentView)
                     {
-                        ChangeAlbum(null);
-                        switchToTrackList = true;
+                        case AlbumView.Playlists:
+                        {
+                            if (ImGui.Selectable(locale.GetString("Player.Playlists.New")))
+                            {
+                                AddPopup(new UpdatePlaylistPopup(locale.GetString("Popup.NewPlaylist.Name"),
+                                    locale.GetString("Popup.NewPlaylist.TextBoxHint"),
+                                    locale.GetString("Button.Create"), name => CreatePlaylist(name, null)));
+                            }
+
+                            if (ImGui.Selectable(locale.GetString("Player.Playlists.Favorites"), _currentAlbum == IMusicLibrary.FavoritesPlaylistName))
+                            {
+                                ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
+                                switchToTrackList = true;
+                            }
+
+                            if (ImGui.BeginPopupContextItem())
+                            {
+                                ShowAlbumEntrySharedContextMenu(IMusicLibrary.FavoritesPlaylistName);
+                                
+                                ImGui.Separator();
+
+                                
+                                if (ImGui.Selectable(locale.GetString("Menu.ClearFavorites")))
+                                {
+                                    AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo, locale.GetString("Popup.ClearFavorites.Name"), locale.GetString("Popup.ClearPlaylist.Text"),
+                                        () =>
+                                        {
+                                            Playlist favorites = GetOrCreateFavoritesPlaylist();
+                                            
+                                            favorites.Tracks.Clear();
+                                            Glimpse.Library.UpdatePlaylist(favorites);
+                                    
+                                            // refresh & show the change if the current view is the favourites playlist
+                                            if (_currentView == AlbumView.Playlists && _currentAlbum == IMusicLibrary.FavoritesPlaylistName)
+                                                ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
+                                        }));
+                                }
+                                
+                                ImGui.EndPopup();
+                            }
+
+                            ImGui.Separator();
+                            break;
+                        }
+                        default:
+                        {
+                            if (ImGui.Selectable(locale.GetString("Player.Albums.ShowAll"), _currentAlbum == null))
+                            {
+                                ChangeAlbum(null);
+                                switchToTrackList = true;
+                            }
+
+                            break;
+                        }
                     }
 
                     ImGuiListClipperPtr clipper = ImGui.ImGuiListClipper();
@@ -718,7 +898,7 @@ public class GlimpsePlayer : Window
                     {
                         IEnumerable<string> albumsRange =
                             _albums.Collection.Take(new Range(clipper.DisplayStart, clipper.DisplayEnd));
-                        
+
                         foreach (string albumName in albumsRange)
                         {
                             // typically the displayed name is the same as the album name, unless it's the special
@@ -735,13 +915,52 @@ public class GlimpsePlayer : Window
 
                             if (ImGui.BeginPopupContextItem())
                             {
-                                if (ImGui.Selectable(locale.GetString("Menu.AddToQueue")))
-                                {
-                                    if (Glimpse.Library.TryGetAlbum(albumName, out Album album))
-                                        player.QueueTracks(album.Tracks, QueueSlot.AtEnd);
-                                }
+                                ShowAlbumEntrySharedContextMenu(albumName);
 
-                                ImGui.Separator();
+                                switch (_currentView)
+                                {
+                                    case AlbumView.Playlists:
+                                    {
+                                        ImGui.Separator();
+
+                                        if (ImGui.Selectable(locale.GetString("Menu.Rename")))
+                                        {
+                                            AddPopup(new UpdatePlaylistPopup(
+                                                locale.GetString("Popup.RenamePlaylist.Name"),
+                                                locale.GetString("Popup.RenamePlaylist.TextBoxHint"),
+                                                locale.GetString("Button.Save"),
+                                                name =>
+                                                {
+                                                    RenamePlaylist(albumName, name);
+                                                    
+                                                    // refresh the view to ensure it reflects the changes.
+                                                    // we're already in the album view so don't need to perform a check.
+                                                    ChangeView(AlbumView.Albums);
+                                                }, albumName));
+                                        }
+                                            
+                                        if (ImGui.Selectable(locale.GetString("Menu.DeletePlaylist")))
+                                        {
+                                            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                                                locale.GetString("Popup.DeletePlaylist.Name"),
+                                                locale.GetString("Popup.DeletePlaylist.Text", albumName), () =>
+                                                {
+                                                    if (!Glimpse.Library.TryDeletePlaylist(albumName))
+                                                    {
+                                                        AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                                                            locale.GetString("Popup.DeletePlaylist.Failed.Name"),
+                                                            locale.GetString("Popup.DeletePlaylist.Failed.Text")));
+                                                    }
+
+                                                    // refresh the view to ensure it reflects the changes.
+                                                    // we're already in the album view so don't need to perform a check.
+                                                    ChangeView(AlbumView.Albums);
+                                                }));
+                                        }
+
+                                        break;
+                                    }
+                                }
                             
                                 // TODO: Reimplement album removal & deletion
                                 /*if (ImGui.Selectable(locale.GetString("Menu.RemoveFromLibrary")))
@@ -783,10 +1002,52 @@ public class GlimpsePlayer : Window
                 Vector2 contentRegion = ImGui.GetContentRegionAvail();
 
                 bool updateAvailable = _newVersionURL != null;
+
+                int numButtons = updateAvailable ? 4 : 3;
+                numButtons += _customButtons.Count;
+                if (Glimpse.Library.IsIndexing)
+                    numButtons += 3;
+                float totalButtonWidth = numButtons * ((16 * Scale) + (ImGui.GetStyle().FramePadding.X * 2 + ImGui.GetStyle().ItemSpacing.X));
                 
-                ImGui.SetCursorPos(new Vector2(contentRegion.X - (int) ((updateAvailable ? 114 : 82) * Scale), (int) (5 * Scale)));
+                ImGui.SetCursorPos(new Vector2(contentRegion.X - (int) totalButtonWidth + 15 * Scale, (int) (5 * Scale)));
+
+                // small lil library indexing progress bar
+                // means people don't need to click the + to check if its still indexing
+                if (Glimpse.Library.IsIndexing)
+                {
+                    ImGui.BeginChild("IndexingProgress", ImGuiChildFlags.AutoResizeX);
+                    {
+                        _indexingProgress += dt;
+                        if (_indexingProgress >= 1)
+                            _indexingProgress -= 1;
+
+                        ImGui.SetCursorPosY(6 * Scale);
+                        ImGui.ProgressBar(-_indexingProgress, ScaleVec(16 * 5 + ImGui.GetStyle().FramePadding.X, 10));
+
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Popup.ManageLibrary.IndexingStatus",
+                            Path.GetFileName(Glimpse.Library.CurrentlyIndexedFile!)));
+
+                        ImGui.SameLine();
+
+                        ImGui.EndChild();
+                    }
+                    
+                    ImGui.SameLine();
+                }
+                
                 ImGui.BeginChild("SettingsButtons");
                 {
+                    foreach (CustomButton button in _customButtons)
+                    {
+                        if (ImGui.ImageButton(button.ID, button.Image, ScaleVec(16), Vector4.Zero, iconsColor))
+                            button.OnClick();
+                        
+                        if (button.Tooltip != null)
+                            ImGui.SetItemTooltipUnformatted(button.Tooltip);
+                        
+                        ImGui.SameLine();
+                    }
+                    
                     if (updateAvailable)
                     {
                         Vector4 buttonColor = *ImGui.GetStyleColorVec4(ImGuiCol.Button);
@@ -806,7 +1067,8 @@ public class GlimpsePlayer : Window
                             _newVersionBlinker -= float.Pi * 2;
                     }
 
-                    if (ImGui.ImageButton("ReportBug", _bugButton, ScaleVec(16), Vector4.Zero, iconsColor)) Utils.OpenLink("https://github.com/aquagoose/Glimpse/issues/new?template=bug_report.md");
+                    if (ImGui.ImageButton("ReportBug", _bugButton, ScaleVec(16), Vector4.Zero, iconsColor))
+                        Utils.OpenLink("https://github.com/aquagoose/Glimpse/issues/new?template=bug_report.md");
 
                     ImGui.SetItemTooltipUnformatted(locale.GetString("Player.ReportBug"));
                     
@@ -859,7 +1121,7 @@ public class GlimpsePlayer : Window
                         {
                             int song = clipper.DisplayStart;
                             IEnumerable<Track> visibleTracks =
-                                _currentTracks.Take(new Range(clipper.DisplayStart, clipper.DisplayEnd));
+                                _currentTracks.Collection.Take(new Range(clipper.DisplayStart, clipper.DisplayEnd));
                             foreach (Track track in visibleTracks)
                             {
                                 ImGui.TableNextRow(/*songEntryHeight*/);
@@ -868,8 +1130,14 @@ public class GlimpsePlayer : Window
                                 //Console.WriteLine(song);
 
                                 ImGui.TableNextColumn();
-                                if (track.TrackNumber is uint trackNumber)
-                                    ImGui.TextUnformatted(trackNumber.ToString());
+                                // special case for playlists
+                                // instead of displaying the track number in the album, playlists use a continuously
+                                // incrementing number to show the track index.
+                                uint trackNumber = (uint) song + 1;
+                                if (_currentView != AlbumView.Playlists && track.TrackNumber is uint trkNum)
+                                    trackNumber = trkNum;
+
+                                ImGui.TextUnformatted(trackNumber.ToString());
 
                                 ImGui.TableNextColumn();
 
@@ -892,7 +1160,7 @@ public class GlimpsePlayer : Window
                                 if (ImGui.Selectable($"{title}##{path}", path == currentTrackPath, isRatingHovered ? ImGuiSelectableFlags.None : ImGuiSelectableFlags.SpanAllColumns))
                                 {
                                     player.QueueTracks(_currentTracks.Select(trk => trk.Path), QueueSlot.Clear);
-                                    if (!player.TryChangeTrack(song))
+                                    if (!player.Play(song))
                                         AddPopup(new FileNotFoundPopup(title));
                                 }
                                 ImGui.SetColumnTooltip(title);
@@ -904,6 +1172,80 @@ public class GlimpsePlayer : Window
                                     if (ImGui.Selectable(locale.GetString("Menu.PlayNext")))
                                         player.QueueTrack(path, QueueSlot.NextTrack);
 
+                                    ImGui.Separator();
+
+                                    // much like in the transport bar, create the favorites playlist if it doesn't exist
+                                    bool isInFavorites = GetOrCreateFavoritesPlaylist().Tracks.Contains(path);
+                                    if (ImGui.Selectable(locale.GetString(isInFavorites ? "Menu.RemoveFromFavorites" : "Menu.AddToFavorites")))
+                                    {
+                                        Debug.Assert(_favoritesPlaylist != null);
+                                        if (isInFavorites)
+                                            _favoritesPlaylist.Tracks.Remove(path);
+                                        else
+                                            _favoritesPlaylist.Tracks.Add(path);
+
+                                        Glimpse.Library.UpdatePlaylist(_favoritesPlaylist);
+
+                                        // refresh & show the change if the current view is the favourites playlist
+                                        if (_currentView == AlbumView.Playlists && _currentAlbum == IMusicLibrary.FavoritesPlaylistName)
+                                            ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
+                                    }
+
+                                    if (ImGui.BeginMenu(locale.GetString("Menu.AddToPlaylist")))
+                                    {
+                                        if (ImGui.MenuItem(locale.GetString("Player.Playlists.New")))
+                                        {
+                                            AddPopup(new UpdatePlaylistPopup(locale.GetString("Popup.NewPlaylist.Name"),
+                                                locale.GetString("Popup.NewPlaylist.TextBoxHint"),
+                                                locale.GetString("Button.Create"), name => CreatePlaylist(name, path)));
+                                        }
+
+                                        if (_playlists is not Dictionary<string, Playlist> playlists)
+                                        {
+                                            playlists = Glimpse.Library.GetPlaylists().ToDictionary(playlist => playlist.Name);
+                                            _playlists = playlists;
+                                        }
+
+                                        if (playlists.Count > 0)
+                                        {
+                                            ImGui.Separator();
+
+                                            foreach ((string name, Playlist playlist) in playlists)
+                                            {
+                                                bool isInPlaylist = playlist.Tracks.Contains(path);
+
+                                                if (ImGui.MenuItem($"{(isInPlaylist ? "\ue5ca " : "   ")}{name}"))
+                                                {
+                                                    if (isInPlaylist)
+                                                        playlist.Tracks.Remove(path);
+                                                    else
+                                                        playlist.Tracks.Add(path);
+
+                                                    Glimpse.Library.UpdatePlaylist(playlist);
+
+                                                    // refresh and show the change if the current view is the playlist the
+                                                    // song was added to/removed from
+                                                    if (_currentView == AlbumView.Playlists && _currentAlbum == name)
+                                                        ChangeAlbum(name);
+                                                }
+                                            }
+                                        }
+
+                                        ImGui.EndMenu();
+                                    }
+
+                                    if (_customTrackContextMenuItems.Count > 0)
+                                    {
+                                        ImGui.Separator();
+                                        foreach (ContextMenuItem item in _customTrackContextMenuItems)
+                                        {
+                                            if (ImGui.Selectable(item.Text))
+                                                item.OnClick();
+                                            if (item.Tooltip != null)
+                                                ImGui.SetItemTooltipUnformatted(item.Tooltip);
+                                        }
+                                    }
+                                    
                                     ImGui.Separator();
 
                                     if (ImGui.Selectable(locale.GetString("Menu.ShowInExplorer", Glimpse.Platform.FileManagerName)))
@@ -979,22 +1321,43 @@ public class GlimpsePlayer : Window
 
                 ImGuiTabItemFlags queueFlags =
                     switchToQueueView ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
-                
+
                 if (ImGui.BeginTabItem(locale.GetString("Player.Tab.Queue"), queueFlags))
                 {
-                    ImGui.BeginChild("QueuedTracks");
+                    if (!_hasUpdatedQueue)
                     {
+                        _hasUpdatedQueue = true;
+                        Glimpse.Logger.Log("Updating play queue.");
+                        
                         List<string> queuedTracks = player.QueuedTracks;
                         List<int> playOrder = player.PlayOrder;
+
+                        _queuedTracks.Clear();
+                        _queuedTracks.EnsureCapacity(playOrder.Count);
+                        foreach (int i in playOrder)
+                        {
+                            string trackPath = queuedTracks[i];
+                            if (!Glimpse.Library.TryGetTrack(trackPath, out Track? track))
+                            {
+                                Glimpse.Player.TryGetTrackInfoForFile(trackPath, out TrackInfo? info);
+                                track = new Track(trackPath, info);
+                            }
+                            
+                            _queuedTracks.Add(track);
+                        }
+                    }
+
+                    ImGui.BeginChild("QueuedTracks");
+                    {
                         ImGuiListClipperPtr clipper = ImGui.ImGuiListClipper();
-                        clipper.Begin(queuedTracks.Count, (32 + 2) * Scale);
+                        clipper.Begin(_queuedTracks.Count, (32 + 2) * Scale);
 
                         while (clipper.Step())
                         {
                             for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-                        //for (int i = 0; i < queuedTracks.Count; i++)
+                                //for (int i = 0; i < queuedTracks.Count; i++)
                             {
-                                string path = queuedTracks[playOrder[i]];
+                                Track track = _queuedTracks[i];
 
                                 bool selected = i == player.CurrentTrackIndex;
                                 bool dark = i < player.CurrentTrackIndex;
@@ -1009,20 +1372,29 @@ public class GlimpsePlayer : Window
 
                                 Vector2 cursorPos = ImGui.GetCursorPos();
                                 int height = (int) ((32 + 6) * Scale);
-
-                                // TODO: perform better checking here!
-                                Glimpse.Library.TryGetTrack(path, out Track? track);
-                                string title = track?.Title ?? locale.GetString("UnknownTrack");
-                                string artist = track?.Artist ?? locale.GetString("UnknownArtist");
-                                string album = track?.Album ?? locale.GetString("UnknownAlbum");
                                 
-                                if (ImGui.Selectable($"##Queue{i}", selected, ImGuiSelectableFlags.AllowOverlap, new Vector2(0, height)))
+                                string title = track.Title ?? locale.GetString("UnknownTrack");
+                                string artist = track.Artist ?? locale.GetString("UnknownArtist");
+                                string album = track.Album ?? locale.GetString("UnknownAlbum");
+
+                                if (ImGui.Selectable($"##Queue{i}", selected, ImGuiSelectableFlags.AllowOverlap,
+                                        new Vector2(0, height)))
                                 {
-                                    if (!player.TryChangeTrack(i))
-                                    {
+                                    if (!player.Play(i))
                                         AddPopup(new FileNotFoundPopup(title));
-                                    }
                                 }
+
+                                if (ImGui.BeginPopupContextItem())
+                                {
+                                    if (ImGui.Selectable(locale.GetString("Menu.RemoveFromQueue")))
+                                    {
+                                        player.RemoveTrackFromQueue(i);
+                                        _hasUpdatedQueue = false;
+                                    }
+
+                                    ImGui.EndMenu();
+                                }
+
                                 ImGui.SetCursorPos(cursorPos);
                                 ImGui.SameLine();
 
@@ -1054,9 +1426,11 @@ public class GlimpsePlayer : Window
 
                         ImGui.EndChild();
                     }
-                    
+
                     ImGui.EndTabItem();
                 }
+                else
+                    _hasUpdatedQueue = false;
                 
                 ImGui.EndTabBar();
             }
@@ -1086,6 +1460,7 @@ public class GlimpsePlayer : Window
     private void PlayerOnStateChanged(TrackState state)
     {
         Glimpse.Platform.SetPlayState(state, Glimpse.Player.CurrentTrack, Glimpse.Player.ElapsedTime);
+        _hasUpdatedQueue = false;
         
         if (state != TrackState.Stopped)
             return;
@@ -1183,6 +1558,34 @@ public class GlimpsePlayer : Window
         }
     }
 
+    public void AddCustomButton(CustomButton button)
+    {
+        _customButtons.Add(button);
+    }
+
+    public void RemoveCustomButton(string id)
+    {
+        _customButtons.RemoveAll(button => button.ID == id);
+    }
+
+    public void AddCustomTrackContextMenuItem(ContextMenuItem item)
+    {
+        _customTrackContextMenuItems.Add(item);
+    }
+    
+    public void AddCustomAlbumContextMenuItem(ContextMenuItem item)
+    {
+        _customAlbumContextMenuItems.Add(item);
+    }
+
+    public void RemoveCustomContextMenuItem(string id)
+    {
+        // its quite a naive way to do things but whatever. it works
+        // once the UI is overhauled this shouldn't be a problem anymore.
+        _customTrackContextMenuItems.RemoveAll(item => item.ID == id);
+        _customAlbumContextMenuItems.RemoveAll(item => item.ID == id);
+    }
+
     public override void Dispose()
     {
         _playCountTimer.Dispose();
@@ -1200,7 +1603,19 @@ public class GlimpsePlayer : Window
         _shuffleButton.Dispose();
         _repeatButton.Dispose();
         _repeatOneButton.Dispose();
-        
+
+        if (Glimpse.Config.Appearance.SaveWindowStateOnExit)
+        {
+            StateConfig state = new()
+            {
+                Position = Position,
+                Size = Size,
+                Maximized = Maximized
+            };
+
+            Glimpse.ConfigManager.WriteConfig(StateConfig.ConfigName, state);
+        }
+
         base.Dispose();
     }
 
@@ -1209,6 +1624,109 @@ public class GlimpsePlayer : Window
         ImGuiStylePtr style = ImGui.GetStyle();
         SetupStyle(style);
         RefreshLayout();
+    }
+
+    private void FavoriteButton(AudioPlayer player, Locale locale, Vector2 iconSize, Vector4 iconsColor)
+    {
+        bool isInFavorites = false;
+        if (player.TrackState != TrackState.Stopped)
+        {
+            // if there's no favorites playlist for some reason, create a new one and save it.
+            // stops the disk from being hammered by queries about if the playlist exists,
+            // and the simplest solution is literally just to create the playlist.
+            isInFavorites = GetOrCreateFavoritesPlaylist().Tracks.Contains(player.CurrentTrackPath);
+        }
+
+        if (ImGui.ImageButton("HeartButton", isInFavorites ? _heartFilled : _heart, iconSize,
+                new Vector2(1, 0), new Vector2(0, 1), Vector4.Zero, iconsColor))
+        {
+            Debug.Assert(_favoritesPlaylist != null);
+
+            if (isInFavorites)
+                _favoritesPlaylist.Tracks.Remove(player.CurrentTrackPath);
+            else
+                _favoritesPlaylist.Tracks.Add(player.CurrentTrackPath);
+
+            Glimpse.Library.UpdatePlaylist(_favoritesPlaylist);
+
+            // if the current view is the favorites playlist, refresh to reflect the change
+            if (_currentView == AlbumView.Playlists && _currentAlbum == IMusicLibrary.FavoritesPlaylistName)
+                ChangeAlbum(IMusicLibrary.FavoritesPlaylistName);
+        }
+
+        ImGui.SetItemTooltipUnformatted(
+            locale.GetString(isInFavorites ? "Menu.RemoveFromFavorites" : "Menu.AddToFavorites"));
+    }
+
+    private Playlist GetOrCreateFavoritesPlaylist()
+    {
+        if (_favoritesPlaylist == null && !Glimpse.Library.TryGetPlaylist(IMusicLibrary.FavoritesPlaylistName, out _favoritesPlaylist))
+        {
+            Glimpse.Logger.Log("Favorites playlist is missing, a new one is being created.");
+            _favoritesPlaylist = new Playlist(IMusicLibrary.FavoritesPlaylistName, []);
+            Glimpse.Library.UpdatePlaylist(_favoritesPlaylist);
+        }
+
+        return _favoritesPlaylist;
+    }
+
+    private void CreatePlaylist(string name, string? trackToAdd)
+    {
+        // if the playlist already exists, just add it to the existing playlist
+        if (!Glimpse.Library.TryGetPlaylist(name, out Playlist? playlist))
+            playlist = new Playlist(name, []);
+
+        if (trackToAdd != null)
+            playlist.Tracks.Add(trackToAdd);
+
+        Glimpse.Library.UpdatePlaylist(playlist);
+
+        // refresh the view if necessary
+        if (_currentView == AlbumView.Playlists)
+            ChangeView(AlbumView.Albums);
+    }
+
+    private void RenamePlaylist(string from, string to)
+    {
+        if (from == to)
+            return;
+        
+        // ignore the rename if it fails for whatever reason
+        if (!Glimpse.Library.TryGetPlaylist(from, out Playlist? playlist))
+            return;
+
+        Playlist newPlaylist = playlist with { Name = to };
+        // only delete the old playlist if the update was successful
+        if (Glimpse.Library.UpdatePlaylist(newPlaylist))
+            Glimpse.Library.TryDeletePlaylist(from);
+    }
+
+    private bool TryGetTracks(string name, [NotNullWhen(true)] out HashSet<string>? tracks)
+    {
+        tracks = null;
+        switch (_currentView)
+        {
+            case AlbumView.Albums:
+                if (Glimpse.Library.TryGetAlbum(name, out Album? album))
+                    tracks = album.Tracks;
+                break;
+            case AlbumView.Artists:
+                if (Glimpse.Library.TryGetArtist(name, out Artist? artist))
+                    tracks = artist.Tracks;
+                break;
+            case AlbumView.Genres:
+                if (Glimpse.Library.TryGetGenre(name, out Genre? genre))
+                    tracks = genre.Tracks;
+                break;
+            case AlbumView.Playlists:
+                if (Glimpse.Library.TryGetPlaylist(name, out Playlist? playlist))
+                    tracks = playlist.Tracks;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
+        return tracks != null && tracks.Count > 0;
     }
 
     /// <summary>
@@ -1241,6 +1759,13 @@ public class GlimpsePlayer : Window
                 case AlbumView.Genres:
                 {
                     if (!Glimpse.Library.TryGetTracksForGenre(albumName, out _currentTracks))
+                        goto default;
+                    break;
+                }
+
+                case AlbumView.Playlists:
+                {
+                    if (!Glimpse.Library.TryGetTracksForPlaylist(albumName, out _currentTracks))
                         goto default;
                     break;
                 }
@@ -1277,6 +1802,12 @@ public class GlimpsePlayer : Window
                 SizedCollection<Genre> genres = Glimpse.Library.GetGenres();
                 IEnumerable<string> genreNames = genres.Collection.Select(genre => genre.Name);
                 _albums = new SizedCollection<string>(genreNames, genres.Count);
+                break;
+            }
+            case AlbumView.Playlists:
+            {
+                _playlists = Glimpse.Library.GetPlaylists().ToDictionary(playlist => playlist.Name);
+                _albums = new SizedCollection<string>(_playlists.Keys, (uint) _playlists.Count);
                 break;
             }
         }
@@ -1335,6 +1866,39 @@ public class GlimpsePlayer : Window
     {
         Albums,
         Artists,
-        Genres
+        Genres,
+        Playlists
+    }
+
+    public struct CustomButton
+    {
+        public string ID;
+        public Image Image;
+        public string? Tooltip;
+        public Action OnClick;
+
+        public CustomButton(string id, Image image, string? tooltip, Action onClick)
+        {
+            ID = id;
+            Image = image;
+            Tooltip = tooltip;
+            OnClick = onClick;
+        }
+    }
+    
+    public struct ContextMenuItem
+    {
+        public string ID;
+        public string Text;
+        public string? Tooltip;
+        public Action OnClick;
+        
+        public ContextMenuItem(string id, string text, string? tooltip, Action onClick)
+        {
+            ID = id;
+            Text = text;
+            Tooltip = tooltip;
+            OnClick = onClick;
+        }
     }
 }

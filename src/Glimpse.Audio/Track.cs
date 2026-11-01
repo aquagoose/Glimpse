@@ -224,7 +224,7 @@ public class Track : IDisposable
             if (_buffers != null)
             {
                 foreach (AudioBuffer buffer in _buffers)
-                    buffer.Dispose();
+                    buffer?.Dispose();
             }
             _buffers = null;
             _logger?.Log("Disposing stream.");

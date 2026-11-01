@@ -25,7 +25,7 @@ public sealed class RemoveTrackPopup : Popup
         Debug.Assert(success);
     }
 
-    public override void Update(float dt)
+    protected override void Update(float dt)
     {
         Locale locale = Glimpse.Locale;
 

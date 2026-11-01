@@ -88,5 +88,12 @@ public static class ImGuiE
             ImGui.SetNextWindowPos(ImGui.GetMainViewport().Size / 2, ImGuiCond.Always, new Vector2(0.5f));
             return ImGui.BeginPopupModal(name, windowFlags);
         }
+
+        public static void TextLink(string name, string url)
+        {
+            if (ImGui.TextLink(name))
+                Utils.OpenLink(url);
+            ImGui.SetItemTooltipUnformatted(url);
+        }
     }
 }

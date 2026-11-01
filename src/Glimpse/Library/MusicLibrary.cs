@@ -10,12 +10,15 @@ namespace Glimpse.Library;
 
 public class MusicLibrary : IMusicLibrary
 {
+    private const string PlaylistFileExtension = ".m3u";
+
     public const string DatabaseName = "Library";
     public const uint DatabaseVersion = 1;
 
-    private readonly Logger _logger;
+    private readonly Glimpse _glimpse;
     private readonly AudioPlayer _player;
     private readonly string _databasePath;
+    private readonly string _playlistsBasePath;
     
     private Task? _indexTask;
     private string? _currentlyIndexedPath;
@@ -47,11 +50,12 @@ public class MusicLibrary : IMusicLibrary
 
     public IReadOnlyCollection<string> ExcludedDirectories => _excludedDirectories;
 
-    public MusicLibrary(Logger logger, AudioPlayer player)
+    public MusicLibrary(Glimpse glimpse, AudioPlayer player)
     {
-        _logger = logger;
+        _glimpse = glimpse;
         _player = player;
         _databasePath = Path.Combine(IConfigManager.BaseDir, $"{DatabaseName}.json");
+        _playlistsBasePath = Path.Combine(IConfigManager.BaseDir, "Playlists");
 
         _libraryPaths = [];
         _excludedDirectories = [];
@@ -63,7 +67,14 @@ public class MusicLibrary : IMusicLibrary
         
         Updated = delegate { };
 
-        // Handle first-time usage. TODO This will also deal with the migration from Database.json -> Library.json
+        // initialize the favourites playlist and playlist directory if they don't exist.
+        if (!File.Exists(GetPlaylistPath(IMusicLibrary.FavoritesPlaylistName)))
+        {
+            Directory.CreateDirectory(_playlistsBasePath);
+            File.Create(GetPlaylistPath(IMusicLibrary.FavoritesPlaylistName)).Dispose();
+        }
+
+        // Handle first-time usage.
         if (!File.Exists(_databasePath))
         {
             SaveLibrary(false);
@@ -87,6 +98,9 @@ public class MusicLibrary : IMusicLibrary
 
         foreach (Genre genre in library.Genres)
             _genres.TryAdd(genre.Name, genre);
+        
+        if (_glimpse.Config.Library.RefreshLibraryOnStartup)
+            Index();
     }
     
     public SizedCollection<Track> GetTracks()
@@ -121,6 +135,32 @@ public class MusicLibrary : IMusicLibrary
         return new SizedCollection<Genre>(genreEnumerable, (uint) genres.Count);
     }
 
+    public SizedCollection<Playlist> GetPlaylists()
+    {
+        _glimpse.Logger.Log("Refreshing playlists.");
+        string[] playlistFiles = Directory.GetFiles(_playlistsBasePath, $"*{PlaylistFileExtension}");
+
+        List<Playlist> playlists = [];
+        uint numPlaylists = 0;
+
+        foreach (string file in playlistFiles)
+        {
+            string fileName = Path.GetFileNameWithoutExtension(file);
+
+            if (fileName == IMusicLibrary.FavoritesPlaylistName)
+                continue;
+
+            // todo: maybe should have a debug assertion here
+            if (!TryGetPlaylist(fileName, out Playlist? playlist))
+                continue;
+
+            playlists.Add(playlist);
+            numPlaylists++;
+        }
+
+        return new SizedCollection<Playlist>(playlists, numPlaylists);
+    }
+
     // TODO: Rename this method to EnumerateLibraryPaths() ?
     public IReadOnlyCollection<string> GetLibraryPaths()
     {
@@ -129,7 +169,7 @@ public class MusicLibrary : IMusicLibrary
         {
             if (!Directory.Exists(libraryPath))
             {
-                _logger.Log($"ERROR: Library path \"{libraryPath}\" does not exist! Skipping...");
+                _glimpse.Logger.Log($"ERROR: Library path \"{libraryPath}\" does not exist! Skipping...");
                 continue;
             }
 
@@ -186,7 +226,6 @@ public class MusicLibrary : IMusicLibrary
     public void Index()
     {
         _indexTask = Task.Run(IndexLibrary);
-        //IndexLibrary(); // TODO: Make this threaded again
     }
     
     public bool TryGetTrack(string path, [NotNullWhen(true)] out Track? track)
@@ -237,6 +276,63 @@ public class MusicLibrary : IMusicLibrary
         return true;
     }
 
+    public bool TryGetTracksForPlaylist(string playlistName, out SizedCollection<Track> tracks)
+    {
+        if (!TryGetPlaylist(playlistName, out Playlist? playlist))
+        {
+            tracks = [];
+            return false;
+        }
+
+        // we don't want to order tracks in the playlist.
+        // glimpse should show the order in which the songs were added to the playlist.
+        // also should not ignore unknown tracks. playlists may contain tracks from outside the library,
+        // and they should still be displayed correctly. this does require fetching the track information
+        // each time though...
+        // todo cache the results of the unknown tracks for faster lookups?
+        tracks = GetTracksFromPathList(playlist.Tracks, false, false);
+        return true;
+    }
+
+    public bool TryGetAlbum(string albumName, [NotNullWhen(true)] out Album? album)
+    {
+        return _albums.TryGetValue(albumName, out album);
+    }
+
+    public bool TryGetArtist(string artistName, [NotNullWhen(true)] out Artist? artist)
+    {
+        return _artists.TryGetValue(artistName, out artist);
+    }
+
+    public bool TryGetGenre(string genreName, [NotNullWhen(true)] out Genre? genre)
+    {
+        return _genres.TryGetValue(genreName, out genre);
+    }
+
+    public bool TryGetPlaylist(string playlistName, [NotNullWhen(true)] out Playlist? playlist)
+    {
+        string playlistPath = GetPlaylistPath(playlistName);
+        if (!File.Exists(playlistPath))
+        {
+            playlist = null;
+            return false;
+        }
+
+        HashSet<string> trackPaths = [];
+        foreach (string file in File.ReadLines(playlistPath))
+        {
+            string trimmedFile = file.Trim();
+            // ignore gaps in the file
+            if (string.IsNullOrWhiteSpace(trimmedFile))
+                continue;
+
+            trackPaths.Add(trimmedFile);
+        }
+
+        playlist = new Playlist(playlistName, trackPaths);
+        return true;
+    }
+
     public bool UpdateTrack(Track track)
     {
         _tracks[track.Path] = track;
@@ -246,9 +342,15 @@ public class MusicLibrary : IMusicLibrary
         return true;
     }
 
-    public bool TryGetAlbum(string albumName, out Album album)
+    public bool UpdatePlaylist(Playlist playlist)
     {
-        return _albums.TryGetValue(albumName, out album);
+        Directory.CreateDirectory(_playlistsBasePath);
+        string playlistPath = GetPlaylistPath(playlist.Name);
+        using StreamWriter writer = File.CreateText(playlistPath);
+        foreach (string track in playlist.Tracks)
+            writer.WriteLine(track);
+
+        return true;
     }
 
     // TODO: These methods MUST call SaveLibrary, but implement Transactions first.
@@ -296,24 +398,48 @@ public class MusicLibrary : IMusicLibrary
         return true;
     }
 
-    private SizedCollection<Track> GetTracksFromPathList(IReadOnlyCollection<string> paths)
+    public bool TryDeletePlaylist(string name)
+    {
+        string playlistPath = GetPlaylistPath(name);
+        if (!File.Exists(playlistPath))
+            return false;
+        File.Delete(playlistPath);
+        return true;
+    }
+
+    private string GetPlaylistPath(string playlistName)
+    {
+        return Path.Combine(_playlistsBasePath, $"{playlistName}{PlaylistFileExtension}");
+    }
+
+    private SizedCollection<Track> GetTracksFromPathList(IReadOnlyCollection<string> paths, bool order = true, bool ignoreUnknownTracks = true)
     {
         List<Track> trackList = [];
         foreach (string path in paths)
         {
             if (!TryGetTrack(path, out Track? track))
-                continue;
+            {
+                if (ignoreUnknownTracks)
+                    continue;
+
+                _player.TryGetTrackInfoForFile(path, out TrackInfo? info);
+                track = new Track(path, info);
+            }
             
             trackList.Add(track);
         }
 
-        IEnumerable<Track> trackEnumerable = trackList.OrderBy(track => track.TrackNumber).ThenBy(track => track.Title);
+        IEnumerable<Track> trackEnumerable;
+        if (order)
+            trackEnumerable = trackList.OrderBy(track => track.TrackNumber).ThenBy(track => track.Title);
+        else
+            trackEnumerable = trackList;
         return new SizedCollection<Track>(trackEnumerable, (uint) trackList.Count);
     }
 
     private void SaveLibrary(bool emitChanged)
     {
-        _logger.Log($"Saving library to {_databasePath}.");
+        _glimpse.Logger.Log($"Saving library to {_databasePath}.");
         Library library = new Library(DatabaseVersion, _libraryPaths, _excludedDirectories,
             (IReadOnlyCollection<Track>) _tracks.Values, (IReadOnlyCollection<Album>) _albums.Values,
             (IReadOnlyCollection<Artist>) _artists.Values, (IReadOnlyCollection<Genre>) _genres.Values);
@@ -326,35 +452,38 @@ public class MusicLibrary : IMusicLibrary
 
     private void IndexLibrary()
     {
-        // TODO: Make this thread safe.
-        /*Dictionary<string, Track> tracks = [];
-        Dictionary<string, Album> albums = [];
-        Dictionary<string, Artist> artists = [];
-        Dictionary<string, Genre> genres = [];*/
+        // gets all track paths currently in the library.
+        // used to track which files no longer exist, by removing tracks from this list that DO still exist.
+        // ToHashSet is not a particularly fast operation, but it's not called often, so eh.
+        HashSet<string> trackPathsInCurrentLibrary = _tracks.Keys.ToHashSet();
         
         foreach (string libraryPath in _libraryPaths)
         {
-            _logger.Log($"Indexing library path: {libraryPath}");
+            _glimpse.Logger.Log($"Indexing library path: {libraryPath}");
 
             // TODO: Could probably be made more efficient using recursive-esque pattern?
             foreach (string directory in GetLibraryPaths())
             {
                 foreach (string path in Directory.GetFiles(directory))
                 {
-                    _logger.Log($"  Indexing {path}");
+                    _glimpse.Logger.Log($"  Indexing {path}");
                     _currentlyIndexedPath = path;
-                    if (!_player.TryGetTrackInfoForFile(path, out TrackInfo info))
+                    if (!_player.TryGetTrackInfoForFile(path, out TrackInfo? info))
                     {
-                        _logger.Log("    ... failed.");
+                        _glimpse.Logger.Log("    ... failed.");
                         continue;
                     }
 
-                    TryGetTrack(path, out Track? oldTrack);
+                    trackPathsInCurrentLibrary.Remove(path);
+
+                    // the output is valid regardless of whether the track exists or not,
+                    // so we can just ignore the return value.
+                    _ = TryGetTrack(path, out Track? oldTrack);
                     Track track = new Track(path, info, oldTrack);
                     _tracks[path] = track;
 
                     string albumName = track.Album ?? string.Empty;
-                    if (!_albums.TryGetValue(albumName, out Album album))
+                    if (!_albums.TryGetValue(albumName, out Album? album))
                     {
                         album = new Album(albumName, []);
                         _albums[album.Name] = album;
@@ -364,7 +493,7 @@ public class MusicLibrary : IMusicLibrary
 
                     if (track.Artist != null)
                     {
-                        if (!_artists.TryGetValue(track.Artist, out Artist artist))
+                        if (!_artists.TryGetValue(track.Artist, out Artist? artist))
                         {
                             artist = new Artist(track.Artist, []);
                             _artists[artist.Name] = artist;
@@ -375,7 +504,7 @@ public class MusicLibrary : IMusicLibrary
 
                     if (track.Genre != null)
                     {
-                        if (!_genres.TryGetValue(track.Genre, out Genre genre))
+                        if (!_genres.TryGetValue(track.Genre, out Genre? genre))
                         {
                             genre = new Genre(track.Genre, []);
                             _genres[genre.Name] = genre;
@@ -391,14 +520,21 @@ public class MusicLibrary : IMusicLibrary
             }
         }
 
-        /*_tracks = tracks;
-        _albums = albums;
-        _artists = artists;
-        _genres = genres;*/
+        // as the loop removes each track from the hashset as it goes, anything left in here should be tracks that
+        // no longer exist on the user's filesystem.
+        // if the setting is enabled, we should remove those tracks from the library.
+        if (_glimpse.Config.Library.RemoveMissingFilesFromLibrary)
+        {
+            foreach (string path in trackPathsInCurrentLibrary)
+            {
+                // try to delete the track. if it fails for some reason, oh well. carry on
+                _ = TryDeleteTrack(path);
+            }
+        }
 
         _currentlyIndexedPath = null;
         SaveLibrary(false);
-        _logger.Log("Indexing complete!");
+        _glimpse.Logger.Log("Indexing complete!");
     }
 
     public delegate void OnUpdate();

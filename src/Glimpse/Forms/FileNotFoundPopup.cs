@@ -5,7 +5,7 @@ namespace Glimpse.Forms;
 
 public class FileNotFoundPopup(string songName) : Popup
 {
-    public override void Update(float dt)
+    protected override void Update(float dt)
     {
         if (ImGui.OpenPopupModal(Glimpse.Locale.GetString("Popup.FileNotFound.Name")))
         {

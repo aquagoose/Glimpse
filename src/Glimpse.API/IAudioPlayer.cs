@@ -91,14 +91,27 @@ public interface IAudioPlayer
     public void QueueTracks(IEnumerable<string> paths, QueueSlot slot);
 
     /// <summary>
-    /// Try and change to the given queue index.
+    /// Remove a track from the queue at the given index.
+    /// </summary>
+    /// <param name="queueIndex">The index to remove the track from.</param>
+    public void RemoveTrackFromQueue(int queueIndex);
+    
+    /// <summary>
+    /// Clear the queue and play a track from the given path.
+    /// </summary>
+    /// <param name="path">The path of the track to play.</param>
+    /// <returns>True if the track is playing, false otherwise.</returns>
+    public bool Play(string path);
+    
+    /// <summary>
+    /// Play the track at the given index.
     /// </summary>
     /// <param name="index">The index in the queue to change to.</param>
-    /// <returns>True if the change was successful, false otherwise.</returns>
-    public bool TryChangeTrack(int index);
+    /// <returns>True if the track is playing, false otherwise.</returns>
+    public bool Play(int index);
 
     /// <summary>
-    /// Start playback of the currently playing track.
+    /// Resume playback of the currently playing track.
     /// </summary>
     public void Play();
 
@@ -141,6 +154,10 @@ public interface IAudioPlayer
     /// <param name="codec">The <see cref="ICodec"/> to deregister.</param>
     public void DeregisterCodec(ICodec codec);
 
+    public void AddEffect(AudioEffect effect);
+
+    public void RemoveEffect(AudioEffect effect);
+
     /// <summary>
     /// Get <see cref="TrackInfo"/> for the given file path.
     /// </summary>
@@ -151,4 +168,6 @@ public interface IAudioPlayer
     
     public delegate void OnTrackChanged(TrackInfo info, string path);
     public delegate void OnStateChanged(TrackState state);
+
+    public delegate void AudioEffect(Span<float> buffer, in AudioFormat format);
 }

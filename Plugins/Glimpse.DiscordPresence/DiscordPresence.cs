@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DiscordRPC;
 using Glimpse.API;
+using Glimpse.API.UI;
 using Hexa.NET.ImGui;
 using MetaBrainz.MusicBrainz;
 using MetaBrainz.MusicBrainz.CoverArt;
@@ -16,36 +17,29 @@ public partial class DiscordPresence : IPlugin
     private IGlimpse _glimpse;
     private bool _initialized;
     
-    private string _currentUrl;
+    private string? _currentUrl;
 
-    public DiscordConfig Config;
+    private DiscordConfig _config;
     
     public DiscordRpcClient Client;
 
     public bool IsInitialized => _initialized;
-    
-    public string Name => "Discord RPC";
 
-    public void DisplayGui()
+    public bool ConfigChanged => false; // the discord config is not currently editable
+
+    public void OnGUI(IImmediateGUI ui)
     {
-        if (ImGui.BeginTable("ArtTable", 2, ImGuiTableFlags.ScrollY))
+        ui.Table(["Album", "AlbumArt"], ctx =>
         {
-            ImGui.TableSetupColumn("Album", ImGuiTableColumnFlags.WidthStretch, 0.2f);
-            ImGui.TableSetupColumn("Album Art", ImGuiTableColumnFlags.WidthStretch, 0.8f);
-            ImGui.TableSetupScrollFreeze(0, 1);
-            ImGui.TableHeadersRow();
-
-            foreach ((string album, string albumArt) in Config.AlbumArt)
+            foreach ((string album, string albumArt) in _config.AlbumArt)
             {
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.TextUnformatted(album);
-                ImGui.TableNextColumn();
-                ImGui.TextUnformatted(albumArt);
+                ctx.NewRow();
+                ctx.NewColumn();
+                ui.Text(album);
+                ctx.NewColumn();
+                ui.Text(albumArt);
             }
-            
-            ImGui.EndTable();
-        }
+        });
     }
 
     public void Initialize(IGlimpse glimpse)
@@ -55,10 +49,10 @@ public partial class DiscordPresence : IPlugin
         
         Client = new DiscordRpcClient("1280266653950804111");
         
-        if (!_glimpse.ConfigManager.TryGetConfig("Discord", out Config))
+        if (!_glimpse.ConfigManager.TryGetConfig("Discord", out _config))
         {
-            Config = new DiscordConfig();
-            _glimpse.ConfigManager.WriteConfig("Discord", Config);
+            _config = new DiscordConfig();
+            _glimpse.ConfigManager.WriteConfig("Discord", _config);
         }
         
         Client.Initialize();
@@ -108,31 +102,42 @@ public partial class DiscordPresence : IPlugin
         {
             _glimpse.Logger.Log($"AlbumName: {albumName}");
             albumName = RemoveDiscNumberRegex().Replace(albumName, "");
-           _glimpse.Logger.Log($"Sanitized album name: {albumName}");
 
-            if (Config.AlbumArt.TryGetValue(albumName, out _currentUrl))
+            // insert the album artist in front of the name if available.
+            // helps musicbrainz narrow down the search to stand a better chance of finding the correct album art
+            // ignores "various artists" as that seems to trip musicbrainz up
+            if (info.AlbumArtist != null && !info.AlbumArtist.Equals("various artists", StringComparison.CurrentCultureIgnoreCase))
+                albumName = info.AlbumArtist + ' ' + albumName;
+
+            _glimpse.Logger.Log($"Searching for: \"{albumName}\"");
+
+            if (_config.AlbumArt.TryGetValue(albumName, out _currentUrl))
             {
                 Client.UpdateLargeAsset(_currentUrl);
                 return;
             }
+
+            _glimpse.Logger.Log("  ... not found in album art cache, querying musicbrainz...");
             
             Task.Run(() =>
             {
-                const string app = "GlimpseAudioPlayer";
+                const string app = "com.aquagoose.glimpse";
                 const string contact = "https://github.com/aquagoose";
                 string version = _glimpse.Version.ToString();
 
                 using Query query = new Query(app, version, contact);
-                var releases = query.FindReleases(albumName, 5);
+                var releases = query.FindReleasesAsync(albumName, 5, simple: true).GetAwaiter().GetResult();
                 using CoverArt art = new CoverArt(app, version, contact);
 
                 foreach (ISearchResult<MetaBrainz.MusicBrainz.Interfaces.Entities.IRelease> release in releases.Results)
                 {
-                    IImage image = null;
+                    IImage? image = null;
+                    IRelease? coverArtRelease =
+                        art.FetchReleaseIfAvailableAsync(release.Item.Id).GetAwaiter().GetResult();
 
-                    try
+                    if (coverArtRelease != null)
                     {
-                        foreach (IImage img in art.FetchReleaseIfAvailable(release.Item.Id)?.Images)
+                        foreach (IImage img in coverArtRelease.Images)
                         {
                             if (img.Front)
                             {
@@ -141,17 +146,20 @@ public partial class DiscordPresence : IPlugin
                             }
                         }
                     }
-                    catch (Exception) { }
 
-                    if (image is not null)
-                    {
-                        _currentUrl = image.Location?.ToString();
-                        Config.AlbumArt[albumName] = _currentUrl;
-                        _glimpse.ConfigManager.WriteConfig("Discord", Config);
-                        
-                        Client.UpdateLargeAsset(_currentUrl);
-                        break;
-                    }
+                    if (image is null)
+                        continue;
+
+                    _currentUrl = image.Location?.ToString();
+                    if (_currentUrl == null)
+                        continue;
+
+                    _glimpse.Logger.Log($"  ... found at {_currentUrl}");
+                    _config.AlbumArt[albumName] = _currentUrl;
+                    _glimpse.ConfigManager.WriteConfig("Discord", _config);
+
+                    Client.UpdateLargeAsset(_currentUrl);
+                    break;
                 }
             });
         }

@@ -9,8 +9,11 @@ using System.Runtime.Loader;
 using System.Text.Json.Nodes;
 using Glimpse.API;
 using Glimpse.API.Library;
+using Glimpse.Assets;
 using Glimpse.Audio;
 using Glimpse.Configs;
+using Glimpse.Forms;
+using Glimpse.Graphics;
 using Glimpse.Library;
 using Glimpse.Platforms;
 using Hexa.NET.ImGui;
@@ -26,7 +29,8 @@ public class Glimpse : IGlimpse, IDisposable
 #else
     public const string PipeServerName = "GlimpsePlayer";
 #endif
-    
+
+    private bool _alive;
     private List<Window> _windows;
     private Dictionary<uint, Window> _windowIds;
     private AssemblyLoadContext _pluginsContext;
@@ -55,7 +59,7 @@ public class Glimpse : IGlimpse, IDisposable
 
     public MusicLibrary Library;
     
-    public Dictionary<string, IPlugin>? Plugins;
+    public Dictionary<string, Plugin> Plugins;
 
     public Window MainWindow => _windows[0];
 
@@ -113,7 +117,7 @@ public class Glimpse : IGlimpse, IDisposable
         SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataVersionString, Version.ToString());
         SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataIdentifierString, "com.aquagoose.glimpse");
         SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataCreatorString, "aquagoose");
-        //SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataCopyrightString, "Copyright (C) aquagoose 2026");
+        SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataCopyrightString, "Copyright (C) aquagoose 2026");
         SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataUrlString, "https://www.glimpseplayer.com");
         SDL.SetAppMetadataProperty(SDL.Prop.AppMetadataTypeString, "mediaplayer");
         
@@ -171,100 +175,65 @@ public class Glimpse : IGlimpse, IDisposable
             Locale = Locale.LoadLocale(defaultLocale);
             Config.General.Language = defaultLocale;
         }
+        
+        Library = new MusicLibrary(this, Player);
+        
+        AddWindow(window);
 
-        /*if (!ConfigManager.TryGetConfig(MusicDatabase.DatabaseName, out Database))
+        // todo 2.0: minimize glimpse to tray
+        /*Stream stream = Asset.GetAssetStream("Icons.Glimpse.png");
+        byte[] data = new byte[stream.Length];
+        stream.ReadExactly(data);
+        SDL.Surface icon;
+        fixed (byte* pData = data)
         {
-            Database = new MusicDatabase();
-            ConfigManager.WriteConfig(MusicDatabase.DatabaseName, Database);
-        }*/
+            SDL.IOStream io = SDL.IOFromConstMem((nint) pData, (nuint) data.Length);
+            icon = SDL.LoadPNGIO(io, true);
+        }
 
-        //Database!.Logger = Logger;
-        //Database!.Refresh();
-        Library = new MusicLibrary(Logger, Player);
-        //Database.Index(); // todo setting to index on startup
+        SDL.Tray tray = SDL.CreateTray(icon, "Glimpse");*/
         
 #if !PUBLISH_AOT
         Logger.Log("Searching for 'Plugins' directory.");
-        string pluginsLocation = Utils.GetPath("Plugins");
+        string pluginsLocationInstallDir = Utils.GetPath("Plugins");
+        string pluginsLocationAppData = Path.Combine(IConfigManager.BaseDir, "Plugins");
         _pluginsContext = new AssemblyLoadContext("Plugins");
         Plugins = [];
-        
-        if (Directory.Exists(pluginsLocation))
+
+        void LoadPluginsFromDir(string dir)
         {
-            Logger.Log($"Searching for plugins in {pluginsLocation}");
-            foreach (string file in Directory.GetFiles(pluginsLocation, "*.dll", SearchOption.AllDirectories))
-            {
-                try
-                {
-                    Logger.Log($"Loading assembly from {file}");
-                    _pluginsContext.LoadFromAssemblyPath(file);
-                }
-                catch (BadImageFormatException e)
-                {
-                    Logger.Log($"Failed to load DLL: {e}");
-                    // If this is thrown then it's likely a native DLL.
-                }
-            }
+            foreach (string file in Directory.GetFiles(dir, "*.json", SearchOption.AllDirectories))
+                TryLoadPlugin(file, out _);
+        }
+        
+        if (Directory.Exists(pluginsLocationInstallDir))
+        {
+            Logger.Log($"Searching for plugins in {pluginsLocationInstallDir}");
+            LoadPluginsFromDir(pluginsLocationInstallDir);
+        }
 
-            AssemblyName currentName = Assembly.GetAssembly(typeof(IPlugin))?.GetName();
-            
-            foreach (Assembly assembly in _pluginsContext.Assemblies)
-            {
-                foreach (AssemblyName name in assembly.GetReferencedAssemblies())
-                {
-                    if (name.Name == currentName.Name)
-                    {
-                        if (name.Version != currentName.Version)
-                            Logger.Log($"WARNING: Plugin {name.Name} requires different version of Glimpse (current version: {currentName.Version}, requires: {name.Version}). It may cause errors.");
-                        
-                        goto ASSEMBLY_GOOD;
-                    }
-                }
-                
-                continue;
-                
-                ASSEMBLY_GOOD: ;
-                
-                Logger.Log($"Plugin {assembly} loaded.");
-                
-                foreach (Type type in assembly.GetTypes().Where(type => type.IsAssignableTo(typeof(IPlugin))))
-                {
-                    Logger.Log($"Initializing plugin {type}");
-                    
-                    IPlugin? plugin = (IPlugin?) Activator.CreateInstance(type);
-                    if (plugin == null)
-                        continue;
-
-                    string assemblyName = assembly.GetName().Name;
-
-                    if (Config.Plugins.EnabledPlugins.Contains(assemblyName))
-                    {
-                        Logger.Log("    ... Initialize()");
-                        plugin.Initialize(this);
-                    }
-
-                    Plugins.Add(assemblyName, plugin);
-                }
-            }
+        if (Directory.Exists(pluginsLocationAppData))
+        {
+            Logger.Log($"Searching for plugins in {pluginsLocationAppData}");
+            LoadPluginsFromDir(pluginsLocationAppData);
         }
 #endif
 
         _mainThreadID = Environment.CurrentManagedThreadId;
         _eventFilter = WindowExposedEventWatch;
         
-        AddWindow(window);
         SDL.AddEventWatch(_eventFilter, 0);
-        
+
         if (args.Length > 0)
         {
-            Player.QueueTracks(args, QueueSlot.Clear);
-            Player.TryChangeTrack(0);
-            Player.Play();
+            foreach (string arg in args)
+                ProcessFile(arg, ref _playFiles);
         }
         
         Stopwatch sw = Stopwatch.StartNew();
 
-        while (_windows.Count > 0)
+        _alive = true;
+        while (_alive)
         {
             SDL.Event winEvent;
 
@@ -288,18 +257,23 @@ public class Glimpse : IGlimpse, IDisposable
             if (_playFiles.Count > 0)
             {
                 Player.QueueTracks(_playFiles, QueueSlot.Clear);
-                Player.TryChangeTrack(0);
-                Player.Play();
+                // in case the user provides a file with invalid track paths,
+                // keep advancing until a valid track is found.
+                int trackIndex = 0;
+                while (!Player.Play(trackIndex++)) ;
                 _playFiles.Clear();
             }
 
             _currentDeltaTime = (float) sw.Elapsed.TotalSeconds;
             sw.Restart();
-            
+
             foreach (Window wnd in _windows)
             {
-                if (ImGui.GetIO().WantTextInput && !SDL.TextInputActive(wnd.Handle))
-                    SDL.StartTextInput(wnd.Handle);
+                if (ImGui.GetIO().WantTextInput)
+                {
+                    if (!SDL.TextInputActive(wnd.Handle))
+                        SDL.StartTextInput(wnd.Handle);
+                }
                 else if (SDL.TextInputActive(wnd.Handle))
                     SDL.StopTextInput(wnd.Handle);
 
@@ -554,15 +528,20 @@ public class Glimpse : IGlimpse, IDisposable
     {
         ConfigManager.WriteConfig(GlimpseConfig.ConfigName, Config);
         
-        if (Plugins != null)
+#if !PUBLISH_AOT
+        Logger.Log("Disposing all plugins.");
+        foreach ((string name, Plugin plugin) in Plugins)
         {
-            Logger.Log("Disposing all plugins.");
-            foreach ((string name, IPlugin plugin) in Plugins)
-            {
-                Logger.Log($"Disposing plugin {name}");
-                plugin.Dispose();
-            }
+            if (!plugin.Instance.IsInitialized)
+                return;
+            
+            Logger.Log($"Disposing plugin {name}");
+            plugin.Instance.Dispose();
         }
+#endif
+        
+        foreach (Window window in _windows)
+            window.Dispose();
         
         Player.Dispose();
         //ConfigManager.WriteConfig(MusicDatabase.DatabaseName, Database);
@@ -576,7 +555,10 @@ public class Glimpse : IGlimpse, IDisposable
     {
         switch ((SDL.EventType) winEvent.Type)
         {
-            case SDL.EventType.WindowCloseRequested:
+            // todo temporarily removed window close requested, due to plugins being disposed AFTER the window has
+            //  closed which may cause an exception. as glimpse only has one window its safe to rely on Quit for this
+            //  however if multiple windows are used later then a solution should be figured out.
+            /*case SDL.EventType.WindowCloseRequested:
             {
                 if (!_windowIds.TryGetValue(winEvent.Window.WindowID, out Window wnd))
                     break;
@@ -585,16 +567,19 @@ public class Glimpse : IGlimpse, IDisposable
                 _windowIds.Remove(winEvent.Window.WindowID);
                 _windows.Remove(wnd);
                 break;
-            }
+            }*/
 
             case SDL.EventType.Quit:
             {
-                foreach (Window window in _windows)
-                    window.Dispose();
-
-                _windows.Clear();
-                _windowIds.Clear();
-
+                if (Player.QueuedTracks.Count > 0)
+                {
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                        Locale.GetString("Popup.ExitConfirmation.Name"),
+                        Locale.GetString("Popup.ExitConfirmation.Text"), () => _alive = false));
+                }
+                else
+                    _alive = false;
+                
                 break;
             }
 
@@ -653,6 +638,26 @@ public class Glimpse : IGlimpse, IDisposable
 
             case SDL.EventType.KeyDown:
             {
+                // play/pause on space. if text input is active then obviously that should not pause the player
+                if (winEvent.Key.Key == SDL.Keycode.Space && !SDL.TextInputActive(MainWindow.Handle))
+                {
+                    switch (Player.TrackState)
+                    {
+                        case TrackState.Stopped:
+                            // ignore if stopped
+                            break;
+                        case TrackState.Paused:
+                            Player.Play();
+                            break;
+                        case TrackState.Playing:
+                            Player.Pause();
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                }
+                
+                // we allow the above events to repeat
                 if (winEvent.Key.Repeat)
                     break;
                 
@@ -669,41 +674,90 @@ public class Glimpse : IGlimpse, IDisposable
             case SDL.EventType.DropFile:
             {
                 string fileName;
-                unsafe { fileName = new string((sbyte*) winEvent.Drop.Data); } // lol
-                
-                if (Path.GetExtension(fileName) == ".gplg")
+                unsafe { fileName = new string(winEvent.Drop.Data); } // lol
+                ProcessFile(fileName, ref _playFiles);
+
+                break;
+            }
+        }
+    }
+
+    private void ProcessFile(string file, ref List<string> playFiles)
+    {
+        string extension = Path.GetExtension(file);
+
+        switch (extension.ToLower())
+        {
+#if !PUBLISH_AOT
+            case ".gplg":
+            {
+                string pluginsLocation = Path.Combine(IConfigManager.BaseDir, "Plugins");
+                string pluginName = Path.GetFileNameWithoutExtension(file);
+                string outDir = Path.Combine(pluginsLocation, pluginName);
+                Logger.Log($"Copying plugin '{pluginName}' to {outDir}.");
+                if (Directory.Exists(outDir))
+                    Directory.Delete(outDir, true);
+                ZipFile.ExtractToDirectory(file, outDir);
+                try
                 {
-                    string pluginsLocation = Utils.GetPath("Plugins");
-                    string pluginName = Path.GetFileNameWithoutExtension(fileName);
-                    string outDir = Path.Combine(pluginsLocation, pluginName);
-                    Logger.Log($"Copying plugin '{pluginName}' to {outDir}.");
-                    ZipFile.ExtractToDirectory(fileName, outDir);
-                    try
+                    if (TryLoadPlugin(Path.Combine(outDir, "Plugin.json"), out string id))
                     {
-                        string id = LoadPlugin(Path.Combine(outDir, "Plugin.json"));
-                        SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Information, "Glimpse",
-                            $"Plugin \"{id}\" installed! Go to the settings to enable it.", MainWindow.Handle);
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                            Locale.GetString("Popup.PluginInstalled.Name"),
+                            Locale.GetString("Popup.PluginInstalled.Text", id)));
                     }
-                    catch (Exception e)
+                    else
                     {
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                            Locale.GetString("Popup.PluginUpdated.Name"),
+                            Locale.GetString("Popup.PluginUpdated.Text", id)));
+                    }
+                }
+                catch (Exception e)
+                {
 #if DEBUG
-                        throw;
+                    throw;
 #else
-                        SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Error, "Glimpse", $"Failed to install plugin: {e}",
-                            MainWindow.Handle);
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                        Locale.GetString("Popup.PluginInstallFailed.Name"),
+                        Locale.GetString("Popup.PluginInstallFailed.Text", e)));
 #endif
-                    }
                 }
-                // if the dropped file is a supported audio file, play it
-                else if (Player.TryGetTrackInfoForFile(fileName, out _)) // todo expose FileIsSupported method !!!
+
+                break;
+            }
+#endif
+
+            case ".txt":
+            case ".m3u":
+            case ".m3u8":
+            {
+                string text = File.ReadAllText(file);
+                string[] splitLines = text.Split('\n');
+
+                foreach (string path in splitLines)
                 {
-                    _playFiles = [fileName];
+                    string trimmedPath = path.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmedPath))
+                        continue;
+
+                    playFiles.Add(path);
                 }
+
+                break;
+            }
+
+            default:
+            {
+                // if the dropped file is a supported audio file, play it
+                if (Player.TryGetTrackInfoForFile(file, out _)) // todo expose FileIsSupported method !!!
+                    playFiles = [file];
                 else
                 {
-                    Logger.Log($"Attempted to do something with dropped file '{fileName}', but it was not a supported file.");
-                    SDL.ShowSimpleMessageBox(SDL.MessageBoxFlags.Warning, "Glimpse", "Can't play that file.",
-                        MainWindow.Handle);
+                    Logger.Log($"Attempted to do something with dropped file '{file}', but it was not a supported file.");
+                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                        Locale.GetString("Popup.UnsupportedFile.Name"),
+                        Locale.GetString("Popup.UnsupportedFile.Text", extension)));
                 }
 
                 break;
@@ -711,39 +765,67 @@ public class Glimpse : IGlimpse, IDisposable
         }
     }
 
-    private string LoadPlugin(string pluginJsonFile)
+    private bool TryLoadPlugin(string pluginJsonFile, out string id)
     {
         string json = File.ReadAllText(pluginJsonFile);
         JsonNode pluginJson = JsonNode.Parse(json)!;
 
-        string id = pluginJson["ID"].ToString();
+        id = pluginJson["ID"].ToString();
         string name = pluginJson["Name"].ToString();
+        string author = pluginJson["Author"].ToString();
+        string? description = pluginJson["Description"]?.ToString();
         string entryPoint = pluginJson["EntryPoint"].ToString();
         JsonArray? dependencies = pluginJson["Dependencies"]?.AsArray();
+
+        if (Plugins.ContainsKey(id))
+            return false;
         
         Logger.Log($"Loading plugin \"{name}\" ({id}) at {entryPoint}");
 
-        string currentFileDir = Path.GetDirectoryName(pluginJsonFile);
-        string entryPointPath = Path.Combine(currentFileDir, entryPoint);
-        Assembly assembly = _pluginsContext.LoadFromAssemblyPath(entryPointPath);
-
-        if (dependencies != null)
+        try
         {
-            foreach (string dep in dependencies)
-            {
-                string depPath = Path.Combine(currentFileDir, dep);
-                _pluginsContext.LoadFromAssemblyPath(depPath);
-            }
-        }
-        
-        Type pluginType = assembly.GetTypes().First(type => type.IsAssignableTo(typeof(IPlugin)));
-        IPlugin plugin = (IPlugin) Activator.CreateInstance(pluginType)!; // can ignore the nullable as plugins should not be nullable
-        Plugins!.Add(id, plugin);
-        
-        if (Config.Plugins.EnabledPlugins.Contains(id))
-            plugin.Initialize(this);
+            string currentFileDir = Path.GetDirectoryName(pluginJsonFile);
+            string entryPointPath = Path.Combine(currentFileDir, entryPoint);
+            Assembly assembly = _pluginsContext.LoadFromAssemblyPath(entryPointPath);
 
-        return id;
+            if (dependencies != null)
+            {
+                foreach (string dep in dependencies)
+                {
+                    string depPath = Path.Combine(currentFileDir, dep);
+                    _pluginsContext.LoadFromAssemblyPath(depPath);
+                }
+            }
+
+            Type pluginType = assembly.GetTypes().First(type => type.IsAssignableTo(typeof(IPlugin)));
+            IPlugin
+                plugin = (IPlugin) Activator
+                    .CreateInstance(pluginType)!; // can ignore the nullable as plugins should not be nullable
+            Plugins.Add(id, new Plugin(id, name, author, description, plugin));
+
+            if (Config.Plugins.EnabledPlugins.Contains(id))
+                plugin.Initialize(this);
+        }
+        // plugin load errors shouldn't crash glimpse, especially for an incompatible api version.
+        // todo the messagebox system breaks when there's multiple messageboxes displayed at once. oops
+        catch (ReflectionTypeLoadException e)
+        {
+            Logger.Log($"Failed to load plugin \"{id}\":\n{e}");
+            ((GlimpsePlayer) MainWindow).AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                Locale.GetString("Popup.PluginError.Name"), Locale.GetString("Popup.PluginError.IncompatibleAPI", id)));
+        }
+        catch (Exception e)
+        {
+            Logger.Log($"Failed to load plugin \"{id}\":\n{e}");
+            ((GlimpsePlayer) MainWindow).AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok,
+                Locale.GetString("Popup.PluginError.Name"),
+                Locale.GetString("Popup.PluginError.GeneralLoadFailure", id, e)));
+#if DEBUG
+            throw;
+#endif
+        }
+
+        return true;
     }
 
     private void OnPipeServerConnection(IAsyncResult asyncResult)
@@ -760,8 +842,7 @@ public class Glimpse : IGlimpse, IDisposable
         {
             return;
         }
-
-        _shouldFocusWindow = true;
+        
         // Only copy to the global _playFiles when ready, as this may be called on a separate thread.
         // Helps prevent race conditions.
         List<string> playFiles = [];
@@ -772,12 +853,28 @@ public class Glimpse : IGlimpse, IDisposable
         while ((b = _pipeServer.ReadByte()) != -1)
         {
             Program.CommunicationFlags flags = (Program.CommunicationFlags) b;
-
+        
+            if ((flags & Program.CommunicationFlags.Focus) != 0)
+                _shouldFocusWindow = true;
             if ((flags & Program.CommunicationFlags.PlayFile) != 0)
-                playFiles.Add(reader.ReadString());
+                ProcessFile(reader.ReadString(), ref playFiles);
         }
 
         _playFiles = playFiles;
+
+        // push an event so that SDL_WaitEvents can be bypassed.
+        // on platforms where WaitEvents fully pauses the thread (like on Windows),
+        // not doing this would cause glimpse to completely ignore all requests (like to play a file)
+        // until glimpse was re-opened by the user.
+        // doing this ensures glimpse will play the file when requested, even when minimized
+        unsafe
+        {
+            SDL.Event userEvent = new SDL.Event()
+            {
+                Type = (uint) SDL.EventType.User
+            };
+            SDL.PushEvent(&userEvent);
+        }
 
         _pipeServer.Disconnect();
         _pipeServer.BeginWaitForConnection(OnPipeServerConnection, this);
@@ -788,5 +885,33 @@ public class Glimpse : IGlimpse, IDisposable
     IConfigManager IGlimpse.ConfigManager => ConfigManager;
     IAudioPlayer IGlimpse.Player => Player;
     IMusicLibrary IGlimpse.Library => Library;
-    ILocale? IGlimpse.Locale => Locale;
+    ILocale IGlimpse.Locale => Locale;
+    
+    public void AddButton(string id, string icon, string? tooltip, Action onClick)
+    {
+        GlimpsePlayer player = (GlimpsePlayer) MainWindow;
+        Image image = player.Renderer.CreateImage(icon);
+        player.AddCustomButton(new GlimpsePlayer.CustomButton(id, image, tooltip, onClick));
+    }
+
+    public void RemoveButton(string id)
+    {
+        ((GlimpsePlayer) MainWindow).RemoveCustomButton(id);
+    }
+
+    public void AddContextMenuItem(string id, ContextMenuType type, string text, string? tooltip, Action onClick)
+    {
+        GlimpsePlayer player = (GlimpsePlayer) MainWindow;
+        GlimpsePlayer.ContextMenuItem item = new GlimpsePlayer.ContextMenuItem(id, text, tooltip, onClick);
+        
+        if ((type & ContextMenuType.Track) != 0)
+            player.AddCustomTrackContextMenuItem(item);
+        if ((type & ContextMenuType.Album) != 0)
+            player.AddCustomAlbumContextMenuItem(item);
+    }
+
+    public void RemoveContextMenuItem(string id)
+    {
+        ((GlimpsePlayer) MainWindow).RemoveCustomContextMenuItem(id);
+    }
 }

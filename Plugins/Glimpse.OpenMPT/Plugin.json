@@ -1,7 +1,8 @@
 {
   "ID": "Glimpse.OpenMPT",
   "Name": "OpenMPT Integration",
-  "Version": "GLIMPSE_VERSION",
+  "Author": "Glimpse Team",
+  "Description": "Allows tracker module files (such as .mod, .xm, .it, and .s3m) to be played, using OpenMPT.",
   "NativeDependencies": {
     "win-x64": [
       "libopenmpt.dll",

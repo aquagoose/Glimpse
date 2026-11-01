@@ -16,9 +16,8 @@ public class WelcomePopup : Popup
     private ThemeWidget _themeWidget;
     
     private bool _hasOldLibrary;
-    private string? _importError;
     
-    private string? _disableNext;
+    private bool _disableNext;
     private readonly SDL.DialogFileCallback _folderDialog;
     
     private Image _glimpse;
@@ -35,9 +34,10 @@ public class WelcomePopup : Popup
         _tabIndex = 0;
     }
 
-    public override unsafe void Update(float dt)
+    protected override unsafe void Update(float dt)
     {
-        _disableNext = null;
+        Locale locale = Glimpse.Locale;
+        _disableNext = false;
 
         Vector2 windowSize = ImGui.GetIO().DisplaySize;
         Vector2 welcomeSize = ScaleVec(800, 500);
@@ -45,7 +45,7 @@ public class WelcomePopup : Popup
         
         ImGui.SetNextWindowPos(Vector2.Zero);
         ImGui.SetNextWindowSize(windowSize);
-        if (ImGui.Begin("Welcome", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoBackground))
+        if (ImGui.Begin(locale.GetString("Popup.Welcome.Name"), ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoBackground))
         {
             ImGui.GetWindowDrawList().AddRectFilled(new Vector2(0, 0), windowSize,
                 ImGui.ColorConvertFloat4ToU32(*ImGui.GetStyleColorVec4(ImGuiCol.WindowBg) with { W = 0.75f }));
@@ -55,9 +55,9 @@ public class WelcomePopup : Popup
             {
                 if (ImGui.BeginTabBar("Tabs"))
                 {
-                    Tab("Welcome", 0, WelcomeTab);
-                    Tab("Import", 1, ImportTab);
-                    Tab("Preferences", 2, PreferencesTab);
+                    Tab(locale.GetString("Popup.Welcome.Tab.Welcome"), 0, WelcomeTab);
+                    Tab(locale.GetString("Popup.Welcome.Tab.Import"), 1, ImportTab);
+                    Tab(locale.GetString("Popup.Welcome.Tab.Preferences"), 2, PreferencesTab);
                     
                     ImGui.EndTabBar();
                 }
@@ -74,20 +74,37 @@ public class WelcomePopup : Popup
             ImGui.SetCursorPosX(right - totalButtonsWidth);
             
             ImGui.BeginDisabled(_tabIndex == 0);
-            if (ImGui.Button("Previous", buttonSize))
+            if (ImGui.Button(locale.GetString("Button.Previous"), buttonSize))
                 _tabIndex--;
             ImGui.EndDisabled();
             
             ImGui.SameLine();
 
             bool disableNext = _disableNext != null;
-            ImGui.BeginDisabled(disableNext);
-            if (ImGui.Button("Next", buttonSize))
+            if (ImGui.Button(locale.GetString("Button.Next"), buttonSize))
             {
                 // TODO: This is very manual. Perhaps add a "next button" action or something?
-                if (_tabIndex == 1 && !Glimpse.Library.IsIndexing) // Prevent indexing while indexing already.
-                    Glimpse.Library.Index();
-                _tabIndex++;
+                if (_tabIndex == 1)
+                {
+                    // we don't reeeallly want people accidentally skipping past the import screen
+                    // however for those who do, this allows them to skip, while giving those who blindly click
+                    // a change to go back and add stuff.
+                    if (Glimpse.Library.LibraryPaths.Count == 0)
+                    {
+                        AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                            locale.GetString("Popup.Welcome.SkipImport"),
+                            locale.GetString("Popup.Welcome.SkipImport.Message"), () => _tabIndex++));
+                    }
+                    else
+                    {
+                        if (!Glimpse.Library.IsIndexing) // Prevent indexing while indexing already.
+                            Glimpse.Library.Index();
+
+                        _tabIndex++;
+                    }
+                }
+                else
+                    _tabIndex++;
 
                 if (_tabIndex >= 3)
                 {
@@ -96,10 +113,6 @@ public class WelcomePopup : Popup
                     Close();
                 }
             }
-
-            if (disableNext)
-                ImGui.SetItemTooltipUnformatted(_disableNext);
-            ImGui.EndDisabled();
             
             ImGui.End();
         }
@@ -131,11 +144,11 @@ public class WelcomePopup : Popup
         ImGui.BeginChild("WelcomeText", ImGuiChildFlags.AutoResizeY);
         {
             ImGui.PushFont(ImFontPtr.Null, 48);
-            ImGui.TextUnformatted("Welcome to Glimpse");
+            ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Welcome.WelcomeToGlimpse"));
             ImGui.PopFont();
 
-            ImGui.TextUnformatted("The free, fast, and extensible music player.");
-            ImGui.TextUnformatted("Let's get you started.");
+            ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Welcome.Tagline"));
+            ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Welcome.GetStarted"));
 
             ImGui.EndChild();
         }
@@ -143,101 +156,18 @@ public class WelcomePopup : Popup
 
     private void ImportTab()
     {
-        const string importOldLibraryName = "Migration Assistant";
-        
-        if (_hasOldLibrary && !ImGui.IsPopupOpen(importOldLibraryName))
-            ImGui.OpenPopup(importOldLibraryName);
-
-        if (ImGui.BeginPopupModal(importOldLibraryName, ImGuiWindowFlags.AlwaysAutoResize))
+        if (_hasOldLibrary)
         {
-            ImGui.Text("An alpha (< 0.1.0) music library was found.\nWould you like to import it?\nThe original library will NOT be deleted!");
-
-            if (ImGui.Button("Yes"))
-            {
-                Glimpse.ConfigManager.TryGetConfig(OldMusicDatabase.DatabaseName, out OldMusicDatabase oldDb);
-                
-                HashSet<string> paths = [];
-                foreach ((string path, Track track) in oldDb.Tracks)
-                {
-                    track.Path = path;
-                    Glimpse.Library.InsertOrUpdateTrack(track);
-                    
-                    string basePath = Path.GetDirectoryName(path);
-                    if (string.IsNullOrWhiteSpace(basePath))
-                        continue;
-                    
-                    paths.Add(basePath);
-                }
-
-                foreach ((_, Album album) in oldDb.Albums)
-                    Glimpse.Library.InsertOrUpdateAlbum(album);
-
-                foreach ((_, Artist artist) in oldDb.Artists)
-                    Glimpse.Library.InsertOrUpdateArtist(artist);
-
-                foreach ((_, Genre genre) in oldDb.Genres)
-                    Glimpse.Library.InsertOrUpdateGenre(genre);
-
-                // orders the paths by number of / and then checks if each path is "contained inside"
-                // a path already in the base paths set.
-                HashSet<string> basePaths = [];
-                foreach (string path in paths.OrderBy(s => s.Replace('\\', '/').Count('/')))
-                {
-                    foreach (string basePath in basePaths)
-                    {
-                        if (path.StartsWith(basePath))
-                            goto SKIP; // If a match was found then we know that this path is a sub-path.
-                    }
-
-                    basePaths.Add(path);
-                    
-                    SKIP: ;
-                }
-                
-                foreach (string basePath in basePaths)
-                    Glimpse.Library.AddLibraryPath(basePath);
-                
-                if (basePaths.Count == 0)
-                {
-                    _importError =
-                        "The assistant added your songs, but could not determine any\nexisting library folders. Please add them manually!";
-                }
-
-                _manageLibraryWidget.Refresh();
-                _hasOldLibrary = false;
-                ImGui.CloseCurrentPopup();
-            }
-            
-            ImGui.SameLine();
-
-            if (ImGui.Button("No"))
-            {
-                _hasOldLibrary = false;
-                ImGui.CloseCurrentPopup();
-            }
-
-            ImGui.EndPopup();
+            _hasOldLibrary = false;
+            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.MigrationAssistant"),
+                Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.MigrationAssistant.Message"), ImportOldLibrary));
         }
-        
-        if (_importError != null && !ImGui.IsPopupOpen("Error"))
-            ImGui.OpenPopup("Error");
-        
-        if (ImGui.BeginPopupModal("Error", ImGuiWindowFlags.AlwaysAutoResize))
-        {
-            ImGui.TextUnformatted(_importError);
-            if (ImGui.Button(Glimpse.Locale.GetString("Button.Ok")))
-            {
-                _importError = null;
-                ImGui.CloseCurrentPopup();
-            }
 
-            ImGui.EndPopup();
-        }
-        
         if (_manageLibraryWidget.LibraryPaths.Count == 0)
-            _disableNext = "Add a folder to your library first!";
+            _disableNext = true;
         
-        ImGui.TextUnformatted("Let's start by importing your music.");
+        ImGui.TextUnformatted(Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.GetStarted"));
         _manageLibraryWidget.Update(Glimpse.Locale);
     }
 
@@ -245,6 +175,60 @@ public class WelcomePopup : Popup
     {
         ref GlimpseConfig config = ref Glimpse.Config;
         _themeWidget.Update(ref config);
+    }
+
+    private void ImportOldLibrary()
+    {
+        Glimpse.ConfigManager.TryGetConfig(OldMusicDatabase.DatabaseName, out OldMusicDatabase oldDb);
+
+        HashSet<string> paths = [];
+        foreach ((string path, Track track) in oldDb.Tracks)
+        {
+            track.Path = path;
+            Glimpse.Library.InsertOrUpdateTrack(track);
+
+            string basePath = Path.GetDirectoryName(path);
+            if (string.IsNullOrWhiteSpace(basePath))
+                continue;
+
+            paths.Add(basePath);
+        }
+
+        foreach ((_, Album album) in oldDb.Albums)
+            Glimpse.Library.InsertOrUpdateAlbum(album);
+
+        foreach ((_, Artist artist) in oldDb.Artists)
+            Glimpse.Library.InsertOrUpdateArtist(artist);
+
+        foreach ((_, Genre genre) in oldDb.Genres)
+            Glimpse.Library.InsertOrUpdateGenre(genre);
+
+        // orders the paths by number of / and then checks if each path is "contained inside"
+        // a path already in the base paths set.
+        HashSet<string> basePaths = [];
+        foreach (string path in paths.OrderBy(s => s.Replace('\\', '/').Count('/')))
+        {
+            foreach (string basePath in basePaths)
+            {
+                if (path.StartsWith(basePath))
+                    goto SKIP; // If a match was found then we know that this path is a sub-path.
+            }
+
+            basePaths.Add(path);
+
+            SKIP: ;
+        }
+
+        foreach (string basePath in basePaths)
+            Glimpse.Library.AddLibraryPath(basePath);
+
+        if (basePaths.Count == 0)
+        {
+            AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.Ok, Glimpse.Locale.GetString("Error"),
+                Glimpse.Locale.GetString("Popup.Welcome.Tab.Import.MigrationAssistant.Error")));
+        }
+
+        _manageLibraryWidget.Refresh();
     }
 
     public override void Dispose()

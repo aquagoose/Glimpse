@@ -2,15 +2,15 @@
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>disable</ImplicitUsings>
-        <Nullable>disable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
       <PackageReference Include="Hexa.NET.ImGui" Version="2.2.9" />
-      <PackageReference Include="MetaBrainz.MusicBrainz" Version="6.1.0" />
-      <PackageReference Include="MetaBrainz.MusicBrainz.CoverArt" Version="6.0.0" />
+      <PackageReference Include="MetaBrainz.MusicBrainz" Version="8.0.1" />
+      <PackageReference Include="MetaBrainz.MusicBrainz.CoverArt" Version="7.1.0" />
     </ItemGroup>
 
     <ItemGroup>

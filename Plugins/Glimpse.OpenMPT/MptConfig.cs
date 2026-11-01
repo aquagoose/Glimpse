@@ -3,7 +3,7 @@ using OpenMPT.NET;
 
 namespace Glimpse.OpenMPT;
 
-public class MptConfig : IConfig
+public record struct MptConfig : IConfig
 {
     public bool EmulateAmigaResampler;
 

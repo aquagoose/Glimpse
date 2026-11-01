@@ -22,7 +22,7 @@ public class ThemeEditor : Popup
         _workingTheme = _theme;
     }
 
-    public override unsafe void Update(float dt)
+    protected override unsafe void Update(float dt)
     {
         const string popupName = "Theme Editor";
         bool hasChanges = _workingTheme != _theme;
@@ -103,21 +103,12 @@ public class ThemeEditor : Popup
             if (ImGui.Button("Close"))
             {
                 if (hasChanges)
-                    ImGui.OpenPopup("Unsaved Changes");
+                {
+                    AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo, "Unsaved Changes",
+                        "Are you sure you want to close? You have unsaved changes.", Close));
+                }
                 else
                     Close();
-            }
-            
-            if (ImGui.BeginPopupModal("Unsaved Changes"))
-            {
-                ImGui.Text("Are you sure you want to close? You have unsaved changes.");
-                if (ImGui.Button("Yes"))
-                    Close();
-                ImGui.SameLine();
-                if (ImGui.Button("No"))
-                    ImGui.CloseCurrentPopup();
-            
-                ImGui.EndPopup();
             }
 
             ImGui.End();

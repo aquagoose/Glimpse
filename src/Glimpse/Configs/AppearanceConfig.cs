@@ -13,11 +13,14 @@ public struct AppearanceConfig() : IEquatable<AppearanceConfig>
 
     public bool ConfineAlbumArtToSquare = true;
 
+    public bool SaveWindowStateOnExit = true;
+
     public bool Equals(AppearanceConfig other)
     {
         return PreferredColorScheme == other.PreferredColorScheme && Theme == other.Theme &&
                SwapTransportControls == other.SwapTransportControls &&
-               ConfineAlbumArtToSquare == other.ConfineAlbumArtToSquare;
+               ConfineAlbumArtToSquare == other.ConfineAlbumArtToSquare &&
+               SaveWindowStateOnExit == other.SaveWindowStateOnExit;
     }
 
     public override bool Equals(object? obj)
@@ -27,7 +30,8 @@ public struct AppearanceConfig() : IEquatable<AppearanceConfig>
 
     public override int GetHashCode()
     {
-        return HashCode.Combine((int) PreferredColorScheme, Theme, SwapTransportControls);
+        return HashCode.Combine((int) PreferredColorScheme, Theme, SwapTransportControls, ConfineAlbumArtToSquare,
+            SaveWindowStateOnExit);
     }
 
     public static bool operator ==(AppearanceConfig left, AppearanceConfig right)

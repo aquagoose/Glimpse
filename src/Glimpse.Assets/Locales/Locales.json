@@ -5,9 +5,9 @@
       "DisplayName": "English",
       "Path": "en-gb.json"
     },
-    "null": {
-      "DisplayName": "null",
-      "Path": "null.json"
+    "de-de": {
+      "DisplayName": "Deutsch",
+      "Path": "de-de.json"
     }
   }
 }

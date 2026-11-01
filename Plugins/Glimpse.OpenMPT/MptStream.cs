@@ -30,7 +30,7 @@ public class MptStream : ICodecStream
 
         ModuleMetadata metadata = _module.Metadata;
         TrackInfo = new TrackInfo(null, metadata.Title ?? Path.GetFileNameWithoutExtension(path), metadata.Artist, null,
-            TimeSpan.FromSeconds(_module.DurationInSeconds), null, null);
+            TimeSpan.FromSeconds(_module.DurationInSeconds), null, null, null);
     }
     
     public ulong GetBuffer(Span<byte> buffer)

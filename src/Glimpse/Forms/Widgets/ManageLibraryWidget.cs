@@ -47,7 +47,7 @@ public class ManageLibraryWidget : IDisposable
         
         ImGui.BeginDisabled(_glimpse.Library.IsIndexing);
 
-        if (ImGui.BeginListBox("##Libraries", _popup.ScaleVec(400, 415)))
+        if (ImGui.BeginListBox("##Libraries", _popup.ScaleVec(375, 415)))
         {
             foreach (LibraryDirectory dir in LibraryPaths)
                 dir.Update(_glimpse.Library, ref _selectedLibrary, locale);
@@ -93,10 +93,10 @@ public class ManageLibraryWidget : IDisposable
                 _glimpse.Library.RemoveAllLibraryPaths();
             ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.RemoveAllButton.Tooltip"));
             
-            /*ImGui.Checkbox("Refresh on launch", ref bFalse);
-            ImGui.SetItemTooltipUnformatted("Refresh the music library when Glimpse is launched.");
-            ImGui.Checkbox("Auto remove deleted files", ref bFalse);
-            ImGui.SetItemTooltipUnformatted("Automatically remove tracks that no longer exist on the filesystem.");*/
+            ImGui.Checkbox(locale.GetString("Setting.Library.RefreshLibraryOnStartup"), ref _glimpse.Config.Library.RefreshLibraryOnStartup);
+            ImGui.SetItemTooltipUnformatted(locale.GetString("Setting.Library.RefreshLibraryOnStartup.Tooltip"));
+            ImGui.Checkbox(locale.GetString("Setting.Library.RemoveMissingFilesFromLibrary"), ref _glimpse.Config.Library.RemoveMissingFilesFromLibrary);
+            ImGui.SetItemTooltipUnformatted(locale.GetString("Setting.Library.RemoveMissingFilesFromLibrary.Tooltip"));
             
             ImGui.EndChild();
         }

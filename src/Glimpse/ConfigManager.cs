@@ -65,7 +65,6 @@ public class ConfigManager : IConfigManager
 [JsonSerializable(typeof(Locale))]
 [JsonSerializable(typeof(Locale.AvailableLocale))]
 [JsonSerializable(typeof(Locale.LocaleSet))]
-[JsonSerializable(typeof(MusicLibrary))]
 [JsonSerializable(typeof(Library.Library))]
 [JsonSerializable(typeof(Theme))]
 internal partial class ConfigSerializerContext : JsonSerializerContext;

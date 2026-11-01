@@ -18,7 +18,7 @@ public class ManageLibraryPopup : Popup
         _widget = new ManageLibraryWidget(this);
     }
 
-    public override void Update(float dt)
+    protected override void Update(float dt)
     {
         Locale locale = Glimpse.Locale;
 

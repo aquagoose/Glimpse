@@ -1,8 +1,0 @@
-DiscordRPC.dll
-Glimpse.DiscordPresence.dll
-Glimpse.DiscordPresence.pdb
-MetaBrainz.Common.dll
-MetaBrainz.Common.Json.dll
-MetaBrainz.MusicBrainz.CoverArt.dll
-MetaBrainz.MusicBrainz.dll
-Newtonsoft.Json.dll

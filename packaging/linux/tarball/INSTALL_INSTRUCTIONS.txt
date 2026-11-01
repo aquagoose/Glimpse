@@ -1,0 +1,35 @@
+=================================================
+|      Glimpse Linux Install Instructions       |
+=================================================
+
+Using the Install Script
+===============================
+
+The easiest way to install Glimpse is to use the install script.
+Simply run `Install.sh` and it will install everything for you.
+
+
+
+Manually
+===============================
+
+This guide assumes you are installing it system-wide, however Glimpse works fine
+anywhere. This can easily be modified to use `~/.local/share`, for example.
+
+1. Create directory `/opt/Glimpse`.
+2. Copy the contents of `bin` into this directory.
+3. Copy `glimpse` into `/usr/bin`
+4. Copy the contents of `icons` into `/usr/share/icons`
+5. Copy `Glimpse.desktop` to `/usr/share/applications`
+
+That's all! Glimpse is now installed.
+
+
+
+Uninstalling
+===============================
+
+To uninstall Glimpse, follow the manual install instructions in reverse.
+
+Please note that Glimpse will put its config files in `~/.config/Glimpse`.
+If you wish to fully remove Glimpse, remove that directory as well.

@@ -1,0 +1,11 @@
+#!/usr/bin/env xdg-open
+[Desktop Entry]
+Type=Application
+Name=Glimpse
+GenericName=Music Player
+Comment=The free & extensible cross-platform music player.
+Exec=glimpse %F
+Icon=Glimpse
+Terminal=false
+Categories=Audio;AudioVideo
+MimeType=audio/mpeg;audio/wav;audio/ogg;audio/flac;

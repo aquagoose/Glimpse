@@ -1,8 +1,8 @@
-﻿using System.Runtime.InteropServices.WindowsRuntime;
+﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Media;
 using Windows.Storage.Streams;
 using Glimpse.API;
-using TerraFX.Interop.Windows;
 
 namespace Glimpse.Platforms;
 
@@ -14,11 +14,6 @@ public unsafe class WindowsPlatform : Platform
     private InMemoryRandomAccessStream? _albumArtStream;
 
     public override string FileManagerName => "Explorer";
-    
-    public WindowsPlatform()
-    {
-        TerraFX.Interop.Windows.Windows.CoInitialize(null);
-    }
 
     public override void InitializeMainWindow(IntPtr hwnd)
     {
@@ -57,9 +52,9 @@ public unsafe class WindowsPlatform : Platform
     {
         fixed (char* pPath = path)
         {
-            ITEMIDLIST* list = TerraFX.Interop.Windows.Windows.ILCreateFromPathW(pPath);
-            TerraFX.Interop.Windows.Windows.SHOpenFolderAndSelectItems(list, 0, null, 0);
-            TerraFX.Interop.Windows.Windows.ILFree(list);
+            nint list = ILCreateFromPathW(pPath);
+            SHOpenFolderAndSelectItems(list, 0, 0, 0);
+            ILFree(list);
         }
     }
 
@@ -107,4 +102,13 @@ public unsafe class WindowsPlatform : Platform
     }
 
     public override void Dispose() { }
+
+    [DllImport("shell32")]
+    private static extern nint ILCreateFromPathW(char* path);
+
+    [DllImport("shell32")]
+    private static extern int SHOpenFolderAndSelectItems(nint pidlFolder, uint cidl, nint apidl, uint dwFlags);
+
+    [DllImport("shell32")]
+    private static extern void ILFree(nint list);
 }

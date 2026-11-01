@@ -21,7 +21,7 @@ With plans to support more.
 ### Cross-platform
 Glimpse runs on all 3 major desktop OSes:
 - Windows 10+ (Version 1809 minimum)
-- Linux (tested with both Fedora and Arch Linux)
+- Linux (tested with Arch, Fedora, and Debian)
 - macOS 14+ (may work with earlier versions, untested)
   - macOS support is still new and experimental and may have issues
   - Does not yet have integration with the system media controls

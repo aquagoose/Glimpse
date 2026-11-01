@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Glimpse.API;
 using Glimpse.API.Codecs;
 using Glimpse.Audio.Codecs.Flac;
@@ -29,6 +30,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
     private PlayerSettings _settings;
     private readonly List<ICodec> _codecs;
+    private readonly List<IAudioPlayer.AudioEffect> _effects;
 
     public readonly List<string> QueuedTracks;
     public readonly List<int> PlayOrder;
@@ -37,8 +39,8 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
     public float Volume
     {
-        get => _context.MasterVolume;
-        set => _context.MasterVolume = value;
+        get => _device.MasterVolume;
+        set => _device.MasterVolume = value;
     }
 
     public double Speed
@@ -115,14 +117,16 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     {
         _logger = logger;
         _settings = settings;
+        _effects = [];
         
         _logger?.Log("Creating context.");
         _context = new Context(_settings.SampleRate);
-        Volume = _settings.Volume;
-        Speed = settings.SpeedAdjust;
         
         _logger?.Log("Creating device.");
-        _device = new AudioDevice(_context, _settings.SampleRate);
+        _device = new AudioDevice(_context, _settings.SampleRate, _effects);
+        
+        Volume = _settings.Volume;
+        Speed = settings.SpeedAdjust;
 
         _logger?.Log("Initializing codecs.");
         _codecs = [new Mp3Codec(), new FlacCodec(), new VorbisCodec(), new WavCodec()];
@@ -152,7 +156,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
             case QueueSlot.NextTrack:
                 InsertTrackAtIndex(_currentTrackIndex + 1, path);
                 break;
-            case QueueSlot.Clear: // todo i'm not sure this is ever actually used, so it can probably be removed
+            case QueueSlot.Clear:
                 QueuedTracks.Clear();
                 QueuedTracks.Add(path);
                 PlayOrder.Clear();
@@ -167,7 +171,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         Debug.Assert(QueuedTracks.Count == PlayOrder.Count);
         
         if (isFirstQueue)
-            TryChangeTrack(0);
+            Play(0);
     }
 
     public void QueueTracks(IEnumerable<string> paths, QueueSlot slot)
@@ -186,7 +190,36 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         _shouldShuffle = true;
     }
 
-    public bool TryChangeTrack(int queueIndex)
+    public void RemoveTrackFromQueue(int queueIndex)
+    {
+        int trackIndex = PlayOrder[queueIndex];
+        QueuedTracks.RemoveAt(trackIndex);
+        
+        PlayOrder.RemoveAt(queueIndex);
+        Span<int> playOrder = CollectionsMarshal.AsSpan(PlayOrder);
+        for (int i = 0; i < playOrder.Length; i++)
+        {
+            if (playOrder[i] >= queueIndex)
+                playOrder[i]--;
+        }
+
+        if (queueIndex == _currentTrackIndex)
+        {
+            _currentTrackIndex--;
+            NextTrack(true);
+        }
+        else if (_currentTrackIndex > queueIndex)
+            _currentTrackIndex--;
+    }
+
+    public bool Play(string path)
+    {
+        // todo BREAKING CHANGE: QueueTrack should return a boolean value!
+        QueueTrack(path, QueueSlot.Clear, true);
+        return true;
+    }
+
+    public bool Play(int queueIndex)
     {
         Debug.Assert(QueuedTracks.Count == PlayOrder.Count);
         
@@ -304,7 +337,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                 Stop();
                 return;
             }
-        } while (!TryChangeTrack(_currentTrackIndex));
+        } while (!Play(_currentTrackIndex));
     }
 
     public void Next()
@@ -320,7 +353,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
             if (_currentTrackIndex < 0)
                 _currentTrackIndex = 0;
-        } while(!TryChangeTrack(_currentTrackIndex));
+        } while (!Play(_currentTrackIndex));
     }
 
     public void Seek(double second)
@@ -339,6 +372,16 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         _codecs.Remove(codec);
     }
 
+    public void AddEffect(IAudioPlayer.AudioEffect effect)
+    {
+        _effects.Add(effect);
+    }
+    
+    public void RemoveEffect(IAudioPlayer.AudioEffect effect)
+    {
+        _effects.Remove(effect);
+    }
+
     public bool TryGetTrackInfoForFile(string path, out TrackInfo? info)
     {
         _logger?.Log("Checking for codec support.");
@@ -349,7 +392,17 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         }
 
         _logger?.Log("    Getting track info.");
-        info = codec.GetTrackInfo(path);
+        try
+        {
+            info = codec.GetTrackInfo(path);
+        }
+        catch (Exception e)
+        {
+            _logger?.Log($"    Failed! Exception: ====================================\n{e}");
+            info = null;
+            return false;
+        }
+
         return true;
     }
     

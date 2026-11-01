@@ -22,7 +22,7 @@ public class Locale : ILocale
 
     public string GetString(string str)
     {
-        if (!Strings.TryGetValue(str, out string localeString))
+        if ((!Strings.TryGetValue(str, out string? localeString) || string.IsNullOrEmpty(localeString)) && !BackupLocale.Strings.TryGetValue(str, out localeString))
             return str;
 
         return localeString;
@@ -30,18 +30,21 @@ public class Locale : ILocale
 
     public string GetString(string str, params object[] format)
     {
-        if (!Strings.TryGetValue(str, out string localeString))
+        if ((!Strings.TryGetValue(str, out string? localeString) || string.IsNullOrEmpty(localeString)) && !BackupLocale.Strings.TryGetValue(str, out localeString))
             return str;
             
         return string.Format(localeString, format);
     }
 
+    private static readonly Locale BackupLocale;
+    
     public static readonly LocaleSet AvailableLocales;
 
     static Locale()
     {
         using Stream json = Asset.GetAssetStream("Locales.Locales.json");
         AvailableLocales = JsonSerializer.Deserialize<LocaleSet>(json, ConfigManager.GetDefaultSerializerOptions());
+        BackupLocale = LoadLocale("en-gb");
     }
 
     public static Locale LoadLocale(string id)

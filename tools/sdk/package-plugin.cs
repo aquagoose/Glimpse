@@ -16,6 +16,7 @@ using System.Text.Json.Nodes;
 bool pack = true;
 string? projectName = null;
 string? pluginDir = null;
+string? glimpseVersion = null;
 
 int argPos = 0;
 while (ReadArg(args, ref argPos, out string? arg))
@@ -46,7 +47,21 @@ while (ReadArg(args, ref argPos, out string? arg))
             case "--no-pack":
                 pack = false;
                 break;
-            
+
+            case "--glimpse-version":
+            {
+                if (!ReadArg(args, ref argPos, out string? version))
+                {
+                    PrintError(
+                        "No version was provided.\nNOTE: Unless you happen to be Glimpse's build/publish script, don't use this flag!!!\nThis flag is for the Glimpse publish script ONLY.");
+                    return 1;
+                }
+
+                glimpseVersion = version;
+
+                break;
+            }
+
             default:
                 PrintError($"Unrecognized argument \"{arg}\"!");
                 return 1;
@@ -105,6 +120,10 @@ Process process = new()
         Arguments = $"publish {Path.Combine(pluginDir, projectName)}.csproj -c Release -o {publishDir}"
     }
 };
+
+if (glimpseVersion != null)
+    process.StartInfo.Arguments += $" -p:GlimpseVersion=\"{glimpseVersion}\"";
+
 process.Start();
 process.WaitForExit();
 
@@ -151,6 +170,8 @@ foreach ((_, JsonNode? target) in targets.AsObject())
 SKIP_PACKAGING: ;
 
 JsonNode pluginJson = JsonNode.Parse(File.ReadAllText(pluginJsonFile))!;
+if (glimpseVersion != null)
+    pluginJson["Version"] = glimpseVersion;
 
 // i can't see this ever being false but the script allows for it so gotta handle it...
 if (filesToPackage.Count > 0)

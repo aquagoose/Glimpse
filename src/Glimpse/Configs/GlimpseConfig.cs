@@ -12,14 +12,16 @@ public struct GlimpseConfig() : IConfig, IEquatable<GlimpseConfig>
     
     public AppearanceConfig Appearance = new();
 
+    public LibraryConfig Library = new();
+
     public AudioConfig Audio = new();
 
     public PluginsConfig Plugins = new();
 
     public bool Equals(GlimpseConfig other)
     {
-        return General.Equals(other.General) && Appearance.Equals(other.Appearance) && Audio.Equals(other.Audio) &&
-               Plugins.Equals(other.Plugins);
+        return General.Equals(other.General) && Appearance.Equals(other.Appearance) && Library.Equals(other.Library) &&
+               Audio.Equals(other.Audio) && Plugins.Equals(other.Plugins);
     }
 
     public override bool Equals(object? obj)
@@ -29,7 +31,7 @@ public struct GlimpseConfig() : IConfig, IEquatable<GlimpseConfig>
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(General, Appearance, Audio, Plugins);
+        return HashCode.Combine(General, Appearance, Library, Audio, Plugins);
     }
 
     public static bool operator ==(GlimpseConfig left, GlimpseConfig right)
