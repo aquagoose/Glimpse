@@ -91,6 +91,12 @@ public interface IAudioPlayer
     public void QueueTracks(IEnumerable<string> paths, QueueSlot slot);
 
     /// <summary>
+    /// Remove a track from the queue at the given index.
+    /// </summary>
+    /// <param name="queueIndex">The index to remove the track from.</param>
+    public void RemoveTrackFromQueue(int queueIndex);
+    
+    /// <summary>
     /// Play the track at the given index.
     /// </summary>
     /// <param name="index">The index in the queue to change to.</param>

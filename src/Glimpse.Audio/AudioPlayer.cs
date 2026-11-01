@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Glimpse.API;
 using Glimpse.API.Codecs;
 using Glimpse.Audio.Codecs.Flac;
@@ -187,6 +188,28 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
         // queue is ready for shuffling
         _shouldShuffle = true;
+    }
+
+    public void RemoveTrackFromQueue(int queueIndex)
+    {
+        int trackIndex = PlayOrder[queueIndex];
+        QueuedTracks.RemoveAt(trackIndex);
+        
+        PlayOrder.RemoveAt(queueIndex);
+        Span<int> playOrder = CollectionsMarshal.AsSpan(PlayOrder);
+        for (int i = 0; i < playOrder.Length; i++)
+        {
+            if (playOrder[i] >= queueIndex)
+                playOrder[i]--;
+        }
+
+        if (queueIndex == _currentTrackIndex)
+        {
+            _currentTrackIndex--;
+            NextTrack(true);
+        }
+        else if (_currentTrackIndex > queueIndex)
+            _currentTrackIndex--;
     }
 
     public bool Play(int queueIndex)

@@ -1381,6 +1381,17 @@ public class GlimpsePlayer : Window
                                         AddPopup(new FileNotFoundPopup(title));
                                 }
 
+                                if (ImGui.BeginPopupContextItem())
+                                {
+                                    if (ImGui.Selectable(locale.GetString("Menu.RemoveFromQueue")))
+                                    {
+                                        player.RemoveTrackFromQueue(i);
+                                        _hasUpdatedQueue = false;
+                                    }
+
+                                    ImGui.EndMenu();
+                                }
+
                                 ImGui.SetCursorPos(cursorPos);
                                 ImGui.SameLine();
 
