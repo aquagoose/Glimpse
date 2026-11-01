@@ -1,0 +1,41 @@
+name: "Build Glimpse"
+
+on:
+  push:
+  pull_request: 
+
+jobs:
+  build:
+    name: "Build Glimpse"
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: 1.0.0
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          
+      - name: "Install deps"
+        run: sudo apt install -y nsis
+
+      - name: "Download appimagetool"
+        run: |
+          curl -LO https://github.com/AppImage/appimagetool/releases/latest/download/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          chmod +x publish.cs
+
+      - name: "Install .NET"
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: "Publish Windows x64"
+        run: ./publish.cs -r win-x64 $RELEASE_VERSION
+
+      - name: "Publish Linux x64"
+        run: ./publish.cs -r linux-x64 $RELEASE_VERSION
+        
+      - name: "Public macOS arm64"
+        run: ./publish.cs -r osx-arm64 $RELEASE_VERSION
