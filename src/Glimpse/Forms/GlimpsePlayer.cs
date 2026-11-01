@@ -347,6 +347,7 @@ public class GlimpsePlayer : Window
                 ImGui.Image(albumArt, size);
                 ImGui.EndChild();
             }
+            ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.MiniPlayer"));
             
             if (ImGui.IsItemHovered())
                 ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
@@ -383,6 +384,7 @@ public class GlimpsePlayer : Window
                         {
                             switchToQueueView = true;
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.GoToQueue"));
 
                         if (ImGui.TextButton(player.CurrentTrack?.Artist ?? locale.GetString("UnknownArtist")) &&
                             player.CurrentTrack?.Artist != null)
@@ -392,6 +394,7 @@ public class GlimpsePlayer : Window
                             ChangeView(AlbumView.Artists);
                             ChangeAlbum(player.CurrentTrack.Artist);
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.GoToArtist"));
 
                         if (ImGui.TextButton(player.CurrentTrack?.Album ?? locale.GetString("UnknownAlbum")) &&
                             player.CurrentTrack?.Album != null)
@@ -401,6 +404,7 @@ public class GlimpsePlayer : Window
                             ChangeView(AlbumView.Albums);
                             ChangeAlbum(player.CurrentTrack.Album);
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.GoToAlbum"));
                     }
 
                     ImGui.EndChild();
@@ -453,6 +457,7 @@ public class GlimpsePlayer : Window
                     {
                         player.Previous();
                     }
+                    ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.PreviousTrack"));
 
                     ImGui.SameLine();
 
@@ -460,11 +465,13 @@ public class GlimpsePlayer : Window
                     {
                         if (ImGui.ImageButton("PauseButton", _pauseButton, iconSize, Vector4.Zero, iconsColor))
                             player.Pause();
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Pause"));
                     }
                     else
                     {
                         if (ImGui.ImageButton("PlayButton", _playButton, iconSize, Vector4.Zero, iconsColor))
                             player.Play();
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Play"));
                     }
 
                     ImGui.SameLine();
@@ -473,6 +480,7 @@ public class GlimpsePlayer : Window
                     {
                         player.Next();
                     }
+                    ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.NextTrack"));
 
                     if (!_miniplayer)
                     {
@@ -481,6 +489,7 @@ public class GlimpsePlayer : Window
                         {
                             player.Stop();
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Stop"));
                     }
 
                     ImGui.PopStyleColor();
@@ -530,6 +539,12 @@ public class GlimpsePlayer : Window
 
                             _hasUpdatedQueue = false; // refresh the queue layout to show the newly shuffled/unshuffled queue
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString(player.Shuffle switch
+                        {
+                            ShuffleMode.Off => "Tooltip.ShuffleOff",
+                            ShuffleMode.Default => "Tooltip.ShuffleOn",
+                            _ => throw new ArgumentOutOfRangeException()
+                        }));
                         ImGui.SameLine(0, 0);
                         if (ImGui.ImageButton("RepeatButton", repeat == RepeatMode.RepeatOne ? _repeatOneButton : _repeatButton, ScaleVec(16) * miniplayerScale, Vector4.Zero, repeatButtonTint))
                         {
@@ -542,6 +557,13 @@ public class GlimpsePlayer : Window
                                 _ => throw new ArgumentOutOfRangeException()
                             };
                         }
+                        ImGui.SetItemTooltipUnformatted(locale.GetString(player.Repeat switch
+                        {
+                            RepeatMode.Off => "Tooltip.RepeatOff",
+                            RepeatMode.RepeatQueue => "Tooltip.RepeatAll",
+                            RepeatMode.RepeatOne => "Tooltip.RepeatOne",
+                            _ => throw new ArgumentOutOfRangeException()
+                        }));
                         ImGui.PopStyleColor();
 
                         //if (!_miniplayer)
@@ -579,6 +601,8 @@ public class GlimpsePlayer : Window
                                 ImGui.PopFont();
                                 ImGui.PopStyleVar();
                             }
+                            
+                            ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Volume"));
                         }
 
                         if (!_miniplayer)
@@ -615,6 +639,7 @@ public class GlimpsePlayer : Window
                     Vector2 globalCursorPos = ImGui.GetCursorScreenPos();
                     float width = contentRegion.X - elapsedTextSize.X - lengthTextSize.X - (int) (20 * Scale);
                     ImGui.ProgressBar((float) (position / length), new Vector2(width, 10 * Scale), "");
+                    ImGui.SetItemTooltipUnformatted(locale.GetString("Tooltip.Seek"));
                     
                     // ProgressBars in ImGui don't have any slider-like behaviours. Before we were using a slider and it
                     // worked well, but progress bars look so much better.
