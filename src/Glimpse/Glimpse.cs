@@ -532,6 +532,7 @@ public class Glimpse : IGlimpse, IDisposable
     {
         ConfigManager.WriteConfig(GlimpseConfig.ConfigName, Config);
         
+#if !PUBLISH_AOT
         Logger.Log("Disposing all plugins.");
         foreach ((string name, Plugin plugin) in Plugins)
         {
@@ -541,6 +542,7 @@ public class Glimpse : IGlimpse, IDisposable
             Logger.Log($"Disposing plugin {name}");
             plugin.Instance.Dispose();
         }
+#endif
         
         foreach (Window window in _windows)
             window.Dispose();
@@ -690,6 +692,7 @@ public class Glimpse : IGlimpse, IDisposable
 
         switch (extension.ToLower())
         {
+#if !PUBLISH_AOT
             case ".gplg":
             {
                 string pluginsLocation = Path.Combine(IConfigManager.BaseDir, "Plugins");
@@ -727,6 +730,7 @@ public class Glimpse : IGlimpse, IDisposable
 
                 break;
             }
+#endif
 
             case ".txt":
             case ".m3u":

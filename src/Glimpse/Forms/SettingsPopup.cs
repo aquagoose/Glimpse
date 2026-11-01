@@ -48,11 +48,13 @@ public class SettingsPopup : Popup
         if (Glimpse.Config != _currentConfig)
             flags |= ImGuiWindowFlags.UnsavedDocument;
 
+#if !PUBLISH_AOT
         foreach ((_, Plugin plugin) in Glimpse.Plugins)
         {
             if (plugin.Instance.ConfigChanged)
                 flags |= ImGuiWindowFlags.UnsavedDocument;
         }
+#endif
         
         if (ImGui.OpenPopupModal(currentLocale.GetString("Popup.Settings.Name"), ScaleVec(620, 570), flags))
         {
@@ -360,11 +362,13 @@ public class SettingsPopup : Popup
 
     private void Apply()
     {
+#if !PUBLISH_AOT
         foreach ((_, Plugin plugin) in Glimpse.Plugins)
         {
             if (plugin.Instance.ConfigChanged)
                 plugin.Instance.SaveConfigChanges();
         }
+#endif
         
         GlimpseConfig oldConfig = Glimpse.Config;
         if (oldConfig == _currentConfig)
@@ -380,10 +384,8 @@ public class SettingsPopup : Popup
         
         if (_currentConfig.Appearance.SwapTransportControls != oldConfig.Appearance.SwapTransportControls || _currentConfig.Appearance.Theme != oldConfig.Appearance.Theme || _currentConfig.Appearance.PreferredColorScheme != oldConfig.Appearance.PreferredColorScheme)
             ((GlimpsePlayer) Glimpse.MainWindow).RefreshLayout();
-
-        if (Glimpse.Plugins == null)
-            return;
         
+#if !PUBLISH_AOT
         foreach ((string id, Plugin plugin) in Glimpse.Plugins)
         {
             // Plugin has been disabled
@@ -399,12 +401,15 @@ public class SettingsPopup : Popup
                 plugin.Instance.Initialize(Glimpse);
             }
         }
+#endif
     }
 
     public override void Close()
     {
+#if !PUBLISH_AOT
         foreach ((_, Plugin plugin) in Glimpse.Plugins)
             plugin.Instance.CancelConfigChanges();
+#endif
         
         base.Close();
     }
