@@ -778,7 +778,7 @@ public class GlimpsePlayer : Window
 
                 // make this a common function as the Favorites playlist is separate from the other buttons yet requires
                 // *most of* the same context menu functionality
-                void ShowAlbumEntrySharedContextMenu(string albumName)
+                void ShowAlbumEntrySharedContextMenu(string? albumName)
                 {
                     if (ImGui.Selectable(locale.GetString("Menu.PlayAll")))
                     {
@@ -885,6 +885,12 @@ public class GlimpsePlayer : Window
                             {
                                 ChangeAlbum(null);
                                 switchToTrackList = true;
+                            }
+
+                            if (ImGui.BeginPopupContextItem())
+                            {
+                                ShowAlbumEntrySharedContextMenu(null);
+                                ImGui.EndMenu();
                             }
 
                             break;
@@ -1701,9 +1707,16 @@ public class GlimpsePlayer : Window
             Glimpse.Library.TryDeletePlaylist(from);
     }
 
-    private bool TryGetTracks(string name, [NotNullWhen(true)] out HashSet<string>? tracks)
+    private bool TryGetTracks(string? name, [NotNullWhen(true)] out HashSet<string>? tracks)
     {
         tracks = null;
+        if (name == null)
+        {
+            // todo make this more efficient
+            tracks = Glimpse.Library.GetTracks().Select(track => track.Path).ToHashSet();
+            return true;
+        }
+
         switch (_currentView)
         {
             case AlbumView.Albums:
