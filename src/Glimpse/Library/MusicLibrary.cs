@@ -387,11 +387,11 @@ public class MusicLibrary : IMusicLibrary
         if (!_tracks.TryRemove(path, out Track track))
             return false;
 
-        if (_albums.TryGetValue(track.Album, out Album album))
+        if (track.Album is string albumName && _albums.TryGetValue(albumName, out Album album))
             album.Tracks.Remove(track.Path);
-        if (_artists.TryGetValue(track.Artist, out Artist artist))
+        if (track.Artist is string artistName && _artists.TryGetValue(artistName, out Artist artist))
             artist.Tracks.Remove(track.Path);
-        if (_genres.TryGetValue(track.Path, out Genre genre))
+        if (track.Genre is string genreName && _genres.TryGetValue(genreName, out Genre genre))
             genre.Tracks.Remove(track.Path);
         
         SaveLibrary(true);
