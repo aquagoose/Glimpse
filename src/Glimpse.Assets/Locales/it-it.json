@@ -44,6 +44,7 @@
         "Menu.RemoveFromFavorites": "Rimuovi dai preferiti",
         "Menu.ClearFavorites": "Svuota preferiti...",
         "Menu.AddToPlaylist": "Aggiungi alla playlist",
+        "Menu.RemoveFromPlaylist": null,
         "Menu.RemoveFromLibrary": "Rimuovi dalla libreria...",
         "Menu.RemoveFromQueue": "Rimuovi dalla coda",
         "Menu.ShowInExplorer": "Mostra file in {0}",

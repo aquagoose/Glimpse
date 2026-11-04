@@ -1242,6 +1242,22 @@ public class GlimpsePlayer : Window
                                         ImGui.EndMenu();
                                     }
 
+                                    if (_currentView == AlbumView.Playlists && _currentAlbum != IMusicLibrary.FavoritesPlaylistName)
+                                    {
+                                        if (ImGui.Selectable(locale.GetString("Remove from Playlist")))
+                                        {
+                                            if (Glimpse.Library.TryGetPlaylist(_currentAlbum, out Playlist? playlist))
+                                            {
+                                                playlist.Tracks.Remove(path);
+                                                Glimpse.Library.UpdatePlaylist(playlist);
+                                                // refresh and show the change if the current view is the playlist the
+                                                // song was added to/removed from
+                                                if (_currentView == AlbumView.Playlists)
+                                                    ChangeAlbum(_currentAlbum);
+                                            }
+                                        }
+                                    }
+
                                     if (_customTrackContextMenuItems.Count > 0)
                                     {
                                         ImGui.Separator();

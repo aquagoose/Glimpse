@@ -44,6 +44,7 @@
         "Menu.RemoveFromFavorites": "Remove from Favourites",
         "Menu.ClearFavorites": "Clear Favourites...",
         "Menu.AddToPlaylist": "Add to Playlist",
+        "Menu.RemoveFromPlaylist": "Remove from Playlist",
         "Menu.RemoveFromLibrary": "Remove From Library...",
         "Menu.RemoveFromQueue": "Remove from Queue",
         "Menu.ShowInExplorer": "Show File in {0}",
