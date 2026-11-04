@@ -1206,6 +1206,8 @@ public class GlimpsePlayer : Window
                                                 locale.GetString("Button.Create"), name => CreatePlaylist(name, path)));
                                         }
 
+                                        // loads the playlists from the library, if they haven't been loaded.
+                                        // we do this to stop it from loading the playlists every frame.
                                         if (_playlists is not Dictionary<string, Playlist> playlists)
                                         {
                                             playlists = Glimpse.Library.GetPlaylists().ToDictionary(playlist => playlist.Name);
@@ -1690,6 +1692,10 @@ public class GlimpsePlayer : Window
         // refresh the view if necessary
         if (_currentView == AlbumView.Playlists)
             ChangeView(AlbumView.Albums);
+
+        // force glimpse to reload the playlists, otherwise the playlist may not show in the list
+        // https://github.com/aquagoose/Glimpse/issues/95
+        _playlists = null;
     }
 
     private void RenamePlaylist(string from, string to)
