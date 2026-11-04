@@ -8,6 +8,10 @@
     "de-de": {
       "DisplayName": "Deutsch",
       "Path": "de-de.json"
+    },
+    "it-it": {
+      "DisplayName": "Italiano",
+      "Path": "it-it.json"
     }
   }
 }
