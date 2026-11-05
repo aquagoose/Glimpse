@@ -1,53 +1,32 @@
 using System.Drawing;
 using System.Numerics;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Glimpse.Assets;
-using Glimpse.Graphics.GLUtils;
 using Hexa.NET.ImGui;
-using Silk.NET.OpenGL;
+using piko.SDL3;
 using ImDrawIdx = ushort;
 
 namespace Glimpse.Graphics;
 
 public class ImGuiRenderer : IDisposable
 {
-    private readonly GL _gl;
+    private readonly SDL.Renderer _renderer;
+    private readonly List<SDL.FColor> _colorConvertCache;
     private readonly List<nint> _loadedFonts;
     
     private readonly ImGuiContextPtr _context;
-    
-    private uint _vBufferSize;
-    private uint _iBufferSize;
-
-    private BufferShaderSet<ImDrawVert, ImDrawIdx> _bufferSet;
 
     public ImGuiContextPtr ImGuiContext => _context;
     
-    public unsafe ImGuiRenderer(GL gl, Size size)
+    public unsafe ImGuiRenderer(SDL.Renderer renderer, Size size)
     {
-        _gl = gl;
+        _renderer = renderer;
+        _colorConvertCache = [];
         _loadedFonts = [];
         
         _context = ImGui.CreateContext();
         ImGui.SetCurrentContext(_context);
-        
-        _vBufferSize = 5000;
-        _iBufferSize = 10000;
-        
-        string vertexShader = Resource.LoadString(Assembly.GetExecutingAssembly(), Renderer.ShaderAssemblyBase + "ImGui.vert");
-        string fragmentShader = Resource.LoadString(Assembly.GetExecutingAssembly(), Renderer.ShaderAssemblyBase + "ImGui.frag");
-
-        _bufferSet =
-            new BufferShaderSet<ImDrawVert, ImDrawIdx>(gl, _vBufferSize, _iBufferSize, vertexShader, fragmentShader);
-        
-        _gl.EnableVertexAttribArray(0);
-        _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, (uint) sizeof(ImDrawVert), (void*) 0);
-        _gl.EnableVertexAttribArray(1);
-        _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, (uint) sizeof(ImDrawVert), (void*) 8);
-        _gl.EnableVertexAttribArray(2);
-        _gl.VertexAttribPointer(2, 4, VertexAttribPointerType.UnsignedByte, true, (uint) sizeof(ImDrawVert), (void*) 16);
 
         ImGuiIOPtr io = ImGui.GetIO();
         io.DisplaySize = new Vector2(size.Width, size.Height);
@@ -104,48 +83,8 @@ public class ImGuiRenderer : IDisposable
     {
         ImGui.SetCurrentContext(_context);
         
-        _gl.Enable(EnableCap.ScissorTest);
-        _gl.Enable(EnableCap.Blend);
-        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-        
         ImGui.Render();
         ImDrawDataPtr drawData = ImGui.GetDrawData();
-        
-        _bufferSet.Bind();
-
-        if (drawData.TotalVtxCount >= _vBufferSize)
-        {
-            Console.WriteLine("Recreate vertex buffer.");
-            _vBufferSize = (uint) (drawData.TotalVtxCount + 5000);
-            _bufferSet.ResizeVertexBuffer(_vBufferSize);
-        }
-
-        if (drawData.TotalIdxCount >= _iBufferSize)
-        {
-            Console.WriteLine("Recreate index buffer.");
-            _iBufferSize = (uint) (drawData.TotalIdxCount + 10000);
-            _bufferSet.ResizeIndexBuffer(_iBufferSize);
-        }
-
-        uint vertexOffset = 0;
-        uint indexOffset = 0;
-        
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _bufferSet.VertexBuffer);
-        _gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, _bufferSet.IndexBuffer);
-        void* vPtr = _gl.MapBuffer(BufferTargetARB.ArrayBuffer, BufferAccessARB.WriteOnly);
-        void* iPtr = _gl.MapBuffer(BufferTargetARB.ElementArrayBuffer, BufferAccessARB.WriteOnly);
-        for (int i = 0; i < drawData.CmdListsCount; i++)
-        {
-            ImDrawListPtr cmdList = drawData.CmdLists[i];
-            
-            Unsafe.CopyBlock((byte*) vPtr + vertexOffset, (void*) cmdList.VtxBuffer.Data, (uint) (cmdList.VtxBuffer.Size * sizeof(ImDrawVert)));
-            Unsafe.CopyBlock((byte*) iPtr + indexOffset, (void*) cmdList.IdxBuffer.Data, (uint) (cmdList.IdxBuffer.Size * sizeof(ImDrawIdx)));
-
-            vertexOffset += (uint) (cmdList.VtxBuffer.Size * sizeof(ImDrawVert));
-            indexOffset += (uint) (cmdList.IdxBuffer.Size * sizeof(ImDrawIdx));
-        }
-        _gl.UnmapBuffer(BufferTargetARB.ArrayBuffer);
-        _gl.UnmapBuffer(BufferTargetARB.ElementArrayBuffer);
 
         ref ImVector<ImTextureDataPtr> textures = ref drawData.Textures;
         for (int i = 0; i < textures.Size; i++)
@@ -155,18 +94,18 @@ public class ImGuiRenderer : IDisposable
                 UpdateTexture(texture);
         }
 
-        _bufferSet.SetMatrix4x4("uProjection",
-            Matrix4x4.CreateOrthographicOffCenter(drawData.DisplayPos.X, drawData.DisplayPos.X + drawData.DisplaySize.X,
-                drawData.DisplayPos.Y + drawData.DisplaySize.Y, drawData.DisplayPos.Y, -1, 1));
+        SDL.SetRenderViewport(_renderer, null);
 
-        _gl.Viewport(0, 0, (uint) drawData.DisplaySize.X, (uint) drawData.DisplaySize.Y);
-
-        vertexOffset = 0;
-        indexOffset = 0;
         Vector2 clipOff = drawData.DisplayPos;
+        int fbWidth = (int) drawData.DisplaySize.X;
+        int fbHeight = (int) drawData.DisplaySize.Y;
+
         for (int i = 0; i < drawData.CmdListsCount; i++)
         {
             ImDrawListPtr cmdList = drawData.CmdLists[i];
+
+            ImDrawVert* vertexBuffer = cmdList.VtxBuffer.Data;
+            ImDrawIdx* indexBuffer = cmdList.IdxBuffer.Data;
 
             for (int j = 0; j < cmdList.CmdBuffer.Size; j++)
             {
@@ -174,26 +113,46 @@ public class ImGuiRenderer : IDisposable
                 
                 if (drawCmd.UserCallback != null)
                     continue;
-                
-                _gl.ActiveTexture(TextureUnit.Texture0);
-                _gl.BindTexture(TextureTarget.Texture2D, (uint) drawCmd.GetTexID());
 
                 Vector2 clipMin = new Vector2(drawCmd.ClipRect.X - clipOff.X, drawCmd.ClipRect.Y - clipOff.Y);
                 Vector2 clipMax = new Vector2(drawCmd.ClipRect.Z - clipOff.X, drawCmd.ClipRect.W - clipOff.Y);
-                
+
+                clipMin = Vector2.Clamp(clipMin, Vector2.Zero, new Vector2(fbWidth, fbHeight));
+                clipMax = Vector2.Clamp(clipMax, Vector2.Zero, new Vector2(fbWidth, fbHeight));
+
                 if (clipMax.X <= clipMin.X || clipMax.Y <= clipMin.Y)
                     continue;
 
-                _gl.Scissor((int) clipMin.X, (int) (drawData.DisplaySize.Y - clipMax.Y), (uint) (clipMax.X - clipMin.X),
-                    (uint) (clipMax.Y - clipMin.Y));
+                SDL.Rect clipRect = new SDL.Rect((int) clipMin.X, (int) clipMin.Y, (int) (clipMax.X - clipMin.X), (int) (clipMax.Y - clipMin.Y));
+                SDL.SetRenderClipRect(_renderer, &clipRect);
 
-                _gl.DrawElementsBaseVertex(PrimitiveType.Triangles, drawCmd.ElemCount, DrawElementsType.UnsignedShort,
-                    (void*) ((drawCmd.IdxOffset + indexOffset) * sizeof(ImDrawIdx)),
-                    (int) (drawCmd.VtxOffset + vertexOffset));
+                int numVertices = (int) (cmdList.VtxBuffer.Size - drawCmd.VtxOffset);
+                int numIndices = (int) drawCmd.ElemCount;
+
+                SDL.Texture texture = new SDL.Texture((SDL.TextureRef*) drawCmd.GetTexID());
+                float* xy = (float*) (((byte*) vertexBuffer + drawCmd.VtxOffset) + 0);
+                float* uv = (float*) (((byte*) vertexBuffer + drawCmd.VtxOffset) + 8);
+
+                _colorConvertCache.Clear();
+                _colorConvertCache.EnsureCapacity(numVertices);
+                for (int c = 0; c < numVertices; c++)
+                {
+                    SDL.Color* color = (SDL.Color*) (((byte*) vertexBuffer + drawCmd.VtxOffset + (c * sizeof(ImDrawVert) + 16)));
+                    _colorConvertCache.Add(new SDL.FColor
+                    {
+                        R = color->R / (float) byte.MaxValue,
+                        G = color->G / (float) byte.MaxValue,
+                        B = color->B / (float) byte.MaxValue,
+                        A = color->A / (float) byte.MaxValue
+                    });
+                }
+
+                fixed (SDL.FColor* col = CollectionsMarshal.AsSpan(_colorConvertCache))
+                {
+                    SDL.RenderGeometryRaw(_renderer, texture, xy, sizeof(ImDrawVert), col, sizeof(SDL.FColor), uv,
+                        sizeof(ImDrawVert), numVertices, (nint) (indexBuffer + drawCmd.IdxOffset), numIndices, sizeof(ImDrawIdx));
+                }
             }
-
-            vertexOffset += (uint) cmdList.VtxBuffer.Size;
-            indexOffset += (uint) cmdList.IdxBuffer.Size;
         }
     }
 
@@ -228,25 +187,18 @@ public class ImGuiRenderer : IDisposable
     private unsafe void UpdateTexture(ImTextureDataPtr textureData)
     {
         Console.WriteLine(textureData.Status);
-
-        int currentUnpackAlignment = _gl.GetInteger(GetPName.UnpackAlignment);
-        int currentUnpackRowLength = _gl.GetInteger(GetPName.UnpackRowLength);
         
         switch (textureData.Status)
         {
             case ImTextureStatus.WantCreate:
             {
-                uint texture = _gl.GenTexture();
-                _gl.PixelStore(GLEnum.UnpackAlignment, 1);
-                _gl.PixelStore(GLEnum.UnpackRowLength, 0);
-                _gl.BindTexture(TextureTarget.Texture2D, texture);
-                _gl.TexImage2D(TextureTarget.Texture2D, 0, InternalFormat.Rgba, (uint) textureData.Width,
-                    (uint) textureData.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, textureData.Pixels);
-                
-                _gl.TexParameter(TextureTarget.Texture2D, GLEnum.TextureMinFilter, (int) TextureMinFilter.Linear);
-                _gl.TexParameter(TextureTarget.Texture2D, GLEnum.TextureMagFilter, (int) TextureMagFilter.Linear);
+                SDL.Texture texture = SDL.CreateTexture(_renderer, SDL.PixelFormat.Rgba32, SDL.TextureAccess.Static, textureData.Width, textureData.Height);
+                SDL.SetTextureBlendMode(texture, SDL.BlendMode.Blend);
+                SDL.SetTextureScaleMode(texture, SDL.ScaleMode.Linear);
 
-                textureData.TexID = texture;
+                SDL.UpdateTexture(texture, null, (nint) textureData.GetPixels(), textureData.GetPitch());
+
+                textureData.TexID = texture.Handle;
                 textureData.Status = ImTextureStatus.Ok;
                 
                 break;
@@ -254,25 +206,21 @@ public class ImGuiRenderer : IDisposable
             
             case ImTextureStatus.WantUpdates:
             {
-                _gl.BindTexture(TextureTarget.Texture2D, (uint) textureData.TexID);
-                _gl.PixelStore(GLEnum.UnpackAlignment, 1);
-                _gl.PixelStore(GLEnum.UnpackRowLength, textureData.Width);
                 ref ImVector<ImTextureRect> updates = ref textureData.Updates; 
                 for (int i = 0; i < updates.Size; i++)
                 {
-                    ImTextureRect rect = updates[i];
-                    _gl.TexSubImage2D(TextureTarget.Texture2D, 0, rect.X, rect.Y, rect.W, rect.H, PixelFormat.Rgba,
-                        PixelType.UnsignedByte, textureData.GetPixelsAt(rect.X, rect.Y));
-
-                    textureData.Status = ImTextureStatus.Ok;
+                    ImTextureRect r = updates[i];
+                    SDL.Rect rect = new SDL.Rect(r.X, r.Y, r.W, r.H);
+                    SDL.UpdateTexture(new SDL.Texture((SDL.TextureRef*) textureData.TexID), &rect, (nint) textureData.GetPixelsAt(r.X, r.Y), textureData.GetPitch());
                 }
 
+                textureData.Status = ImTextureStatus.Ok;
                 break;
             }
 
             case ImTextureStatus.WantDestroy:
             {
-                _gl.DeleteTexture((uint) textureData.TexID);
+                SDL.DestroyTexture(new SDL.Texture((SDL.TextureRef*) textureData.TexID));
                 textureData.TexID = ImTextureID.Null;
                 textureData.Status = ImTextureStatus.Destroyed;
                 break;
@@ -281,9 +229,6 @@ public class ImGuiRenderer : IDisposable
             default:
                 throw new ArgumentOutOfRangeException();
         }
-        
-        _gl.PixelStore(PixelStoreParameter.UnpackAlignment, currentUnpackAlignment);
-        _gl.PixelStore(PixelStoreParameter.UnpackRowLength, currentUnpackRowLength);
     }
     
     public unsafe void Dispose()

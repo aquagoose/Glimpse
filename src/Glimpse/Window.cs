@@ -4,7 +4,6 @@ using Glimpse.Forms;
 using Glimpse.Platforms;
 using Hexa.NET.ImGui;
 using piko.SDL3;
-using Silk.NET.OpenGL;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Image = SixLabors.ImageSharp.Image;
@@ -23,7 +22,6 @@ public abstract unsafe class Window : IDisposable
     private float _pixelDensity;
     
     private SDL.Window _window;
-    private SDL.GLContextState _glContext;
     private Dictionary<ImGuiMouseCursor, SDL.Cursor> _cursors;
     private ImGuiMouseCursor _lastCursor;
 
@@ -280,13 +278,10 @@ public abstract unsafe class Window : IDisposable
 
             _cursors[(ImGuiMouseCursor) i] = SDL.CreateSystemCursor(systemCursor);
         }
-
-        _glContext = SDL.GLCreateContext(_window);
         
         _isCreated = true;
 
-        SDL.GLMakeCurrent(_window, _glContext);
-        Renderer = new Renderer(GL.GetApi(SDL.GLGetProcAddress), FramebufferSize);
+        Renderer = new Renderer(_window, FramebufferSize);
         
         if (OperatingSystem.IsWindows())
             Size = _size;
@@ -306,18 +301,12 @@ public abstract unsafe class Window : IDisposable
         return SDL.GetWindowID(_window);
     }
 
-    internal void SetActive()
-    {
-        SDL.GLMakeCurrent(_window, _glContext);
-    }
-
     internal void UpdateWindow(float dt)
     {
         ImGui.SetCurrentContext(Renderer.ImGui.ImGuiContext);
         ImGui.GetIO().DeltaTime = 1 / 60.0f;
         ImGui.NewFrame();
-        
-        Renderer.GL.Disable(EnableCap.ScissorTest);
+
         Update(dt);
 
         for (int i = 0; i < _popups.Count; i++)
@@ -345,8 +334,7 @@ public abstract unsafe class Window : IDisposable
     internal void Present()
     {
         Renderer.ImGui.Render();
-        SDL.GLSetSwapInterval(1);
-        SDL.GLSwapWindow(_window);
+        Renderer.Present(true);
     }
 
     public virtual void Dispose()

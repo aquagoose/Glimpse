@@ -277,7 +277,6 @@ public class Glimpse : IGlimpse, IDisposable
                 else if (SDL.TextInputActive(wnd.Handle))
                     SDL.StopTextInput(wnd.Handle);
 
-                wnd.SetActive();
                 wnd.UpdateWindow(_currentDeltaTime);
                 wnd.Present();
             }
@@ -298,7 +297,6 @@ public class Glimpse : IGlimpse, IDisposable
             case SDL.EventType.WindowResized:
             {
                 Window wnd = _windowIds[@event->Window.WindowID];
-                wnd.SetActive();
                 wnd.Renderer.Resize(wnd.FramebufferSize);
                 break;
             }
@@ -307,7 +305,6 @@ public class Glimpse : IGlimpse, IDisposable
             {
                 Logger.Log("Window Display Scale Changed");
                 Window wnd = _windowIds[@event->Window.WindowID];
-                wnd.SetActive();
                 
                 // windows being windows does not auto resize the window correctly
                 // so we must resize the window by the inverse of the current window scale
@@ -331,7 +328,6 @@ public class Glimpse : IGlimpse, IDisposable
                 {
                     foreach (Window wnd in _windows)
                     {
-                        wnd.SetActive();
                         wnd.UpdateWindow(_currentDeltaTime);
                         wnd.Present();
                     }
