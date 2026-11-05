@@ -1274,7 +1274,12 @@ public class GlimpsePlayer : Window
 
                                     if (ImGui.Selectable(locale.GetString("Menu.ShowInExplorer", Glimpse.Platform.FileManagerName)))
                                         Glimpse.Platform.OpenFileInExplorer(path);
-                                    if (ImGui.Selectable(locale.GetString("Menu.RemoveFromLibrary")))
+                                    // works around https://github.com/aquagoose/Glimpse/issues/99
+                                    // todo 2.0: really the "remove from library" button in playlists should have special
+                                    //  treatment, where there is an option to remove the track from the playlist/all
+                                    //  playlists as well, and that the option is disabled on tracks that are not in the
+                                    //  library (requires breaking changes to the API)
+                                    if (_currentView != AlbumView.Playlists && ImGui.Selectable(locale.GetString("Menu.RemoveFromLibrary")))
                                         AddPopup(new RemoveTrackPopup(path, false));
                                     if (Glimpse.Config.General.EnableFileDeletion && ImGui.Selectable(locale.GetString("Menu.DeleteFile")))
                                         AddPopup(new RemoveTrackPopup(path,true));
