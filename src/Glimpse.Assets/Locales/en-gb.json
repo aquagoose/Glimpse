@@ -143,8 +143,8 @@
         "Popup.Remove.Menu.DeleteAlbumWarning": "PERMANENTLY DELETE {0} and ALL SONGS from your computer?\nNOTE: This will NOT delete the Album's folder(s) from your computer.",
         "Popup.Remove.DeleteTrackWarning": "PERMANENTLY DELETE {0} from your computer?",
         
-        "Popup.FileNotFound.Name": "File Not Found",
-        "Popup.FileNotFound.Text": "The track \"{0}\" can't be played.\nThis could be because the track's file has been moved or deleted.",
+        "Popup.FileNotFound.Name": "Can't Play",
+        "Popup.FileNotFound.Text": "The track \"{0}\" can't be played.\nThis could be because the track's file has been moved or deleted,\nor the file may be an unsupported format.",
         
         "Popup.PluginInstalled.Name": "Plugin Installed",
         "Popup.PluginInstalled.Text": "Plugin \"{0}\" installed! Go to the settings to enable it.",
