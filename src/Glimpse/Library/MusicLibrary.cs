@@ -384,15 +384,17 @@ public class MusicLibrary : IMusicLibrary
 
     public bool TryDeleteTrack(string path)
     {
-        if (!_tracks.TryRemove(path, out Track track))
+        if (!_tracks.TryRemove(path, out Track? track))
             return false;
 
-        if (track.Album is string albumName && _albums.TryGetValue(albumName, out Album album))
-            album.Tracks.Remove(track.Path);
-        if (track.Artist is string artistName && _artists.TryGetValue(artistName, out Artist artist))
-            artist.Tracks.Remove(track.Path);
-        if (track.Genre is string genreName && _genres.TryGetValue(genreName, out Genre genre))
-            genre.Tracks.Remove(track.Path);
+        // remove from album/artist/genre and delete the album/artist/genre if it no longer contains any tracks
+        // todo blegh this is horrible, move this to a function
+        if (track.Album is string albumName && _albums.TryGetValue(albumName, out Album? album) && album.Tracks.Remove(track.Path) && album.Tracks.Count == 0)
+            _albums.Remove(albumName, out _);
+        if (track.Artist is string artistName && _artists.TryGetValue(artistName, out Artist? artist) && artist.Tracks.Remove(track.Path) && artist.Tracks.Count == 0)
+            _artists.Remove(artistName, out _);
+        if (track.Genre is string genreName && _genres.TryGetValue(genreName, out Genre? genre) && genre.Tracks.Remove(track.Path) && genre.Tracks.Count == 0)
+            _genres.Remove(genreName, out _);
         
         SaveLibrary(true);
         return true;
