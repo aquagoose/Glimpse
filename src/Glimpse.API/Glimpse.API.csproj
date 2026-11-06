@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         
-        <Version>0.1.2</Version>
+        <Version>0.2.0</Version>
         <PackageId>GlimpsePlayer.API</PackageId>
         <Description>The official API for the Glimpse Music Player.</Description>
         <Authors>aquagoose</Authors>

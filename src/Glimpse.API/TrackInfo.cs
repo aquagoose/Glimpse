@@ -15,11 +15,17 @@ public class TrackInfo
     public readonly string? Genre;
 
     public readonly string? AlbumArtist;
+    
+    public uint? TotalTracks;
+
+    public uint? DiscNumber;
+
+    public uint? TotalDiscs;
 
     public readonly Image? AlbumArt;
 
     public TrackInfo(uint? trackNumber, string? title, string? artist, string? album, TimeSpan? length, string? genre,
-        string? albumArtist, Image? albumArt)
+        string? albumArtist, uint? totalTracks, uint? discNumber, uint? totalDiscs, Image? albumArt)
     {
         TrackNumber = trackNumber;
         Title = title;
@@ -28,6 +34,9 @@ public class TrackInfo
         Length = length;
         Genre = genre;
         AlbumArtist = albumArtist;
+        TotalTracks = totalTracks;
+        DiscNumber = discNumber;
+        TotalDiscs = totalDiscs;
         AlbumArt = albumArt;
     }
 

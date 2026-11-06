@@ -254,7 +254,8 @@ public class MusicLibrary : IMusicLibrary
 
         SizedCollection<Track> unorderedTracks = GetTracksFromPathList(album.Tracks);
         IEnumerable<Track> orderedTracks = unorderedTracks.Collection
-            .OrderBy(track => track.TrackNumber)
+            .OrderBy(track => track.DiscNumber)
+            .ThenBy(track => track.TrackNumber)
             .ThenBy(track => track.Title)
             .ThenBy(track => track.Artist);
         tracks = new SizedCollection<Track>(orderedTracks, unorderedTracks.Count);
@@ -272,6 +273,7 @@ public class MusicLibrary : IMusicLibrary
         SizedCollection<Track> unorderedTracks = GetTracksFromPathList(artist.Tracks);
         IEnumerable<Track> orderedTracks = unorderedTracks.Collection
             .OrderBy(track => track.Album)
+            .ThenBy(track => track.DiscNumber)
             .ThenBy(track => track.TrackNumber)
             .ThenBy(track => track.Title);
         tracks = new SizedCollection<Track>(orderedTracks, unorderedTracks.Count);
@@ -289,6 +291,7 @@ public class MusicLibrary : IMusicLibrary
         SizedCollection<Track> unorderedTracks = GetTracksFromPathList(genre.Tracks);
         IEnumerable<Track> orderedTracks = unorderedTracks.Collection
             .OrderBy(track => track.Album)
+            .ThenBy(track => track.DiscNumber)
             .ThenBy(track => track.TrackNumber)
             .ThenBy(track => track.Title);
         tracks = new SizedCollection<Track>(orderedTracks, unorderedTracks.Count);

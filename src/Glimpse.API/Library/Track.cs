@@ -18,6 +18,12 @@ public record Track
 
     public string? AlbumArtist;
 
+    public uint? TotalTracks;
+
+    public uint? DiscNumber;
+
+    public uint? TotalDiscs;
+
     public byte Rating;
 
     public uint PlayCount;
@@ -36,6 +42,9 @@ public record Track
         Length = info?.Length;
         Genre = info?.Genre;
         AlbumArtist = info?.AlbumArtist;
+        TotalTracks = info?.TotalTracks;
+        DiscNumber = info?.DiscNumber;
+        TotalDiscs = info?.TotalDiscs;
         Rating = oldTrack?.Rating ?? 0;
         PlayCount = oldTrack?.PlayCount ?? 0;
         LastPlayed = oldTrack?.LastPlayed ?? null;

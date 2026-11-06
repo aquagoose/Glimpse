@@ -48,6 +48,9 @@ public static class CodecUtils
         TimeSpan? length = file.Properties.Duration;
         string? genre = file.Tag.FirstGenre;
         string? albumArtist = file.Tag.FirstAlbumArtist;
+        uint? totalTracks = file.Tag.TrackCount;
+        uint? discNumber = file.Tag.Disc;
+        uint? totalDiscs = file.Tag.DiscCount;
         
         TrackInfo.Image albumArt = null;
         if (file.Tag.Pictures is { Length: > 0 })
@@ -56,6 +59,6 @@ public static class CodecUtils
             albumArt = new TrackInfo.Image(picture.Data?.Data, picture.Filename, picture.MimeType);
         }
 
-        return new TrackInfo(trackNumber, title, artist, album, length, genre, albumArtist, albumArt);
+        return new TrackInfo(trackNumber, title, artist, album, length, genre, albumArtist, totalTracks, discNumber, totalDiscs, albumArt);
     }
 }
