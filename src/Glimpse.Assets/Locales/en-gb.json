@@ -79,6 +79,7 @@
         "Button.Create": "Create",
         "Button.Next": "Next",
         "Button.Previous": "Previous",
+        "Button.Skip": "Skip",
         "Checkbox.Enabled": "Enabled",
         
         "Popup.Settings.Name": "Settings",
@@ -182,6 +183,11 @@
         
         "Popup.ClearFavorites.Name": "Clear Favourites?",
         "Popup.ClearPlaylist.Text": "Clear the favourites playlist?",
+        
+        "Popup.UpdateAvailable.Name": "Update Available",
+        "Popup.UpdateAvailable.Text": "Glimpse {0} is available!\nCurrent version: {1}\n\nWould you like to download it?",
+        "Popup.UpdateAvailable.YesButtonTooltip": "Opens {0}",
+        "Popup.UpdateAvailable.SkipButtonTooltip": "Skips this version",
 
         "Widget.ManageLibrary.AddFolders.Tooltip": "Add Folders to Library",
         "Widget.ManageLibrary.RemoveSelectedFolder.Tooltip": "Remove selected folder from library",

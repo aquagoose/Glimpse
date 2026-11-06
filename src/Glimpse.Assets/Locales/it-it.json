@@ -79,6 +79,7 @@
         "Button.Create": "Crea",
         "Button.Next": "Avanti",
         "Button.Previous": "Indietro",
+        "Button.Skip": null,
         "Checkbox.Enabled": "Attivo",
 
         "Popup.Settings.Name": "Impostazioni",
@@ -182,6 +183,11 @@
 
         "Popup.ClearFavorites.Name": "Svuotare i preferiti?",
         "Popup.ClearPlaylist.Text": "Svuotare la playlist dei preferiti?",
+
+        "Popup.UpdateAvailable.Name": null,
+        "Popup.UpdateAvailable.Text": null,
+        "Popup.UpdateAvailable.YesButtonTooltip": null,
+        "Popup.UpdateAvailable.SkipButtonTooltip": null,
 
         "Widget.ManageLibrary.AddFolders.Tooltip": "Aggiungi cartelle alla libreria",
         "Widget.ManageLibrary.RemoveSelectedFolder.Tooltip": "Rimuovi la cartella selezionata dalla libreria",
