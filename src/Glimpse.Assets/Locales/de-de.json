@@ -79,6 +79,7 @@
         "Button.Create": "Erstellen",
         "Button.Next": null,
         "Button.Previous": null,
+        "Button.Skip": null,
         "Checkbox.Enabled": "Aktiviert",
 
         "Popup.Settings.Name": "Einstellungen",
@@ -182,6 +183,11 @@
 
         "Popup.ClearFavorites.Name": null,
         "Popup.ClearPlaylist.Text": null,
+
+        "Popup.UpdateAvailable.Name": null,
+        "Popup.UpdateAvailable.Text": null,
+        "Popup.UpdateAvailable.YesButtonTooltip": null,
+        "Popup.UpdateAvailable.SkipButtonTooltip": null,
         
         "Widget.ManageLibrary.AddFolders.Tooltip": "Ordner zur Bibliothek hinzufügen",
         "Widget.ManageLibrary.RemoveSelectedFolder.Tooltip": "Ausgewählten Ordner aus der Bibliothek entfernen",

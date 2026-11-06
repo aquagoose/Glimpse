@@ -36,6 +36,8 @@ public class GlimpsePlayer : Window
 
     private SemVer _newVersion;
     private string? _newVersionURL;
+    private bool _hasShownNewVersionPopup;
+    private bool _hasSkippedNewVersion;
     private float _newVersionBlinker;
     
     private string? _currentAlbum;
@@ -309,6 +311,18 @@ public class GlimpsePlayer : Window
         bool switchToQueueView = false;
         AlbumView? switchView = null;
         
+        bool updateAvailable = _newVersionURL != null;
+        if (updateAvailable && !_hasShownNewVersionPopup)
+        {
+            _hasShownNewVersionPopup = true;
+            // check the skip version file.
+            string skipVersionPath = UpdateAvailablePopup.SkipVersionPath;
+            if (File.Exists(skipVersionPath) && File.ReadAllText(skipVersionPath) == _newVersion.ToString())
+                _hasSkippedNewVersion = true;
+            else
+                AddPopup(new UpdateAvailablePopup(_newVersion, _newVersionURL!, () => _hasSkippedNewVersion = true));
+        }
+
         #region Transport Dock
         
         if (ImGui.Begin("Transport", ImGuiWindowFlags.NoResize))
@@ -1007,8 +1021,6 @@ public class GlimpsePlayer : Window
                 Vector2 currentCursorPos = ImGui.GetCursorPos();
                 Vector2 contentRegion = ImGui.GetContentRegionAvail();
 
-                bool updateAvailable = _newVersionURL != null;
-
                 int numButtons = updateAvailable ? 4 : 3;
                 numButtons += _customButtons.Count;
                 if (Glimpse.Library.IsIndexing)
@@ -1058,10 +1070,15 @@ public class GlimpsePlayer : Window
                     {
                         Vector4 buttonColor = *ImGui.GetStyleColorVec4(ImGuiCol.Button);
                         Vector4 highlightColor = new Vector4(1, 0, 0, 1);
-                        float amount = (float.Sin(_newVersionBlinker) + 1) / 2;
+                        float amount;
+                        if (_hasSkippedNewVersion)
+                            amount = 0;
+                        else
+                            amount = (float.Sin(_newVersionBlinker) + 1) / 2;
                         
                         ImGui.PushStyleColor(ImGuiCol.Button, Vector4.Lerp(buttonColor, highlightColor, amount));
-                        if (ImGui.ImageButton("Update", _updateButton, ScaleVec(16), Vector4.Zero, iconsColor)) Utils.OpenLink(_newVersionURL);
+                        if (ImGui.ImageButton("Update", _updateButton, ScaleVec(16), Vector4.Zero, iconsColor))
+                            AddPopup(new UpdateAvailablePopup(_newVersion, _newVersionURL!, () => _hasSkippedNewVersion = true));
                         
                         ImGui.SetItemTooltipUnformatted(locale.GetString("Player.UpdateAvailable", _newVersion));
                         
