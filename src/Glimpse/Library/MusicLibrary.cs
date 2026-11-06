@@ -106,7 +106,11 @@ public class MusicLibrary : IMusicLibrary
     public SizedCollection<Track> GetTracks()
     {
         var tracks = _tracks.Values;
-        IEnumerable<Track> trackEnumerable = tracks.OrderBy(track => track.Album).ThenBy(track => track.TrackNumber);
+        IEnumerable<Track> trackEnumerable = tracks
+            .OrderBy(track => track.Album)
+            .ThenBy(track => track.TrackNumber)
+            .ThenBy(track => track.Title)
+            .ThenBy(track => track.Artist);
 
         return new SizedCollection<Track>(trackEnumerable, (uint) tracks.Count);
     }
@@ -248,7 +252,12 @@ public class MusicLibrary : IMusicLibrary
             return false;
         }
 
-        tracks = GetTracksFromPathList(album.Tracks);
+        SizedCollection<Track> unorderedTracks = GetTracksFromPathList(album.Tracks);
+        IEnumerable<Track> orderedTracks = unorderedTracks.Collection
+            .OrderBy(track => track.TrackNumber)
+            .ThenBy(track => track.Title)
+            .ThenBy(track => track.Artist);
+        tracks = new SizedCollection<Track>(orderedTracks, unorderedTracks.Count);
         return true;
     }
 
@@ -260,7 +269,12 @@ public class MusicLibrary : IMusicLibrary
             return false;
         }
 
-        tracks = GetTracksFromPathList(artist.Tracks);
+        SizedCollection<Track> unorderedTracks = GetTracksFromPathList(artist.Tracks);
+        IEnumerable<Track> orderedTracks = unorderedTracks.Collection
+            .OrderBy(track => track.Album)
+            .ThenBy(track => track.TrackNumber)
+            .ThenBy(track => track.Title);
+        tracks = new SizedCollection<Track>(orderedTracks, unorderedTracks.Count);
         return true;
     }
     
@@ -272,7 +286,12 @@ public class MusicLibrary : IMusicLibrary
             return false;
         }
 
-        tracks = GetTracksFromPathList(genre.Tracks);
+        SizedCollection<Track> unorderedTracks = GetTracksFromPathList(genre.Tracks);
+        IEnumerable<Track> orderedTracks = unorderedTracks.Collection
+            .OrderBy(track => track.Album)
+            .ThenBy(track => track.TrackNumber)
+            .ThenBy(track => track.Title);
+        tracks = new SizedCollection<Track>(orderedTracks, unorderedTracks.Count);
         return true;
     }
 
@@ -290,7 +309,7 @@ public class MusicLibrary : IMusicLibrary
         // and they should still be displayed correctly. this does require fetching the track information
         // each time though...
         // todo cache the results of the unknown tracks for faster lookups?
-        tracks = GetTracksFromPathList(playlist.Tracks, false, false);
+        tracks = GetTracksFromPathList(playlist.Tracks, false);
         return true;
     }
 
@@ -414,7 +433,7 @@ public class MusicLibrary : IMusicLibrary
         return Path.Combine(_playlistsBasePath, $"{playlistName}{PlaylistFileExtension}");
     }
 
-    private SizedCollection<Track> GetTracksFromPathList(IReadOnlyCollection<string> paths, bool order = true, bool ignoreUnknownTracks = true)
+    private SizedCollection<Track> GetTracksFromPathList(IReadOnlyCollection<string> paths, bool ignoreUnknownTracks = true)
     {
         List<Track> trackList = [];
         foreach (string path in paths)
@@ -430,13 +449,8 @@ public class MusicLibrary : IMusicLibrary
             
             trackList.Add(track);
         }
-
-        IEnumerable<Track> trackEnumerable;
-        if (order)
-            trackEnumerable = trackList.OrderBy(track => track.TrackNumber).ThenBy(track => track.Title);
-        else
-            trackEnumerable = trackList;
-        return new SizedCollection<Track>(trackEnumerable, (uint) trackList.Count);
+        
+        return new SizedCollection<Track>(trackList, (uint) trackList.Count);
     }
 
     private void SaveLibrary(bool emitChanged)
