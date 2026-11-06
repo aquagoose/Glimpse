@@ -1156,9 +1156,11 @@ public class GlimpsePlayer : Window
                                 // special case for playlists
                                 // instead of displaying the track number in the album, playlists use a continuously
                                 // incrementing number to show the track index.
-                                uint trackNumber = (uint) song + 1;
-                                if (_currentView != AlbumView.Playlists && track.TrackNumber is uint trkNum)
-                                    trackNumber = trkNum;
+                                uint? trackNumber;
+                                if (_currentView == AlbumView.Playlists)
+                                    trackNumber = (uint) song + 1;
+                                else
+                                    trackNumber = track.TrackNumber;
 
                                 ImGui.TextUnformatted(trackNumber.ToString());
 
