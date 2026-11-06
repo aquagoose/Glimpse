@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Glimpse.API;
 using Glimpse.API.Codecs;
@@ -247,7 +248,9 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         Track? oldTrack = _activeTrack;
         
         _logger?.Log($"  Creating codec stream from file {path}");
-        ICodecStream stream = CreateStreamFromFile(path);
+        if (!TryCreateStreamFromFile(path, out ICodecStream? stream))
+            return false;
+        
         TrackInfo info = stream.TrackInfo;
 
         _logger?.Log("  Creating track.");
@@ -422,16 +425,29 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         return false;
     }
 
-    private ICodecStream CreateStreamFromFile(string path)
+    private bool TryCreateStreamFromFile(string path, [NotNullWhen(true)] out ICodecStream? stream)
     {
         _logger?.Log("Checking for codec support.");
         if (FileIsSupported(path, out ICodec codec))
         {
             _logger?.Log("  Creating stream.");
-            return codec.CreateStream(path);
+            try
+            {
+                stream = codec.CreateStream(path);
+            }
+            catch (Exception e)
+            {
+                _logger?.Log($"Failed to create codec stream: {e}");
+                stream = null;
+                return false;
+            }
+
+            return true;
         }
 
-        throw new NotSupportedException($"File type '{Path.GetExtension(path)}' not supported.");
+        _logger?.Log($"File type {Path.GetExtension(path)} not supported!");
+        stream = null;
+        return false;
     }
 
     private void InsertTrackAtIndex(int index, string path)
