@@ -5,7 +5,9 @@ using System.IO.Compression;
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
+using System.Text;
 using System.Text.Json.Nodes;
 using Glimpse.API;
 using Glimpse.API.Library;
@@ -634,7 +636,14 @@ public class Glimpse : IGlimpse, IDisposable
 
                 unsafe
                 {
-                    foreach (char c in new string((sbyte*) winEvent.Text.Text))
+                    // SDL returns the text formatted as UTF-8, so load using UTF-8 encoding
+                    // the string constructor does not use UTF-8 by default on Windows:
+                    // https://github.com/aquagoose/Glimpse/issues/94
+                    // we must do it this way, as the only overload in the string constructor that accepts an encoding
+                    // requires the string length, so we do it this way since memorymarshal uses SIMD.
+                    // todo is there a better way to do this?
+                    string utf8string = Encoding.UTF8.GetString(MemoryMarshal.CreateReadOnlySpanFromNullTerminated((byte*) winEvent.Text.Text));
+                    foreach (char c in utf8string)
                         ImGui.GetIO().AddInputCharacter(c);
                 }
 
