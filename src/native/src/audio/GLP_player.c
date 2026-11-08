@@ -22,6 +22,7 @@ typedef struct GLP_AudioPlayerImpl
     uint8_t *streamBuffer;
     size_t streamBufferSize;
     SlAudioBuffer buffers[GLP_NUM_AUDIO_BUFFERS];
+    int currentBuffer;
 } GLP_AudioPlayerImpl;
 
 void GLP_MixAudioCallback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
@@ -36,6 +37,22 @@ void GLP_MixAudioCallback(void *userdata, SDL_AudioStream *stream, int additiona
         SDL_PutAudioStreamData(stream, buffer, total);
         additional_amount -= total;
     }
+}
+
+void GLP_BufferFinishedCallback(void* userData)
+{
+    GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) userData;
+    size_t got = slStreamGetBuffer(impl->stream, impl->streamBuffer, impl->streamBufferSize);
+
+    if (got == 0)
+        return;
+    if (got < impl->streamBufferSize)
+        slSourceSetLooping(impl->context, impl->source, false);
+
+    slContextUpdateBuffer(impl->context, impl->buffers[impl->currentBuffer], impl->streamBuffer, got);
+    slSourceSubmitBuffer(impl->context, impl->source, impl->buffers[impl->currentBuffer]);
+
+    impl->currentBuffer = (impl->currentBuffer + 1) % GLP_NUM_AUDIO_BUFFERS;
 }
 
 GLP_Result GLP_CreateAudioPlayer(const GLP_AudioPlayerInfo *info, GLP_AudioPlayer **player)
@@ -60,8 +77,8 @@ GLP_Result GLP_CreateAudioPlayer(const GLP_AudioPlayerInfo *info, GLP_AudioPlaye
     // set the buffer size to the sample rate / 2
     size_t bufferSize = info->sampleRate * 4;
     impl->streamBuffer = malloc(bufferSize);
-    impl->streamBufferSize = bufferSize;
 
+    impl->currentBuffer = 0;
     for (int i = 0; i < GLP_NUM_AUDIO_BUFFERS; i++)
         impl->buffers[i] = slContextCreateBuffer(impl->context, NULL, 0);
 
@@ -84,6 +101,26 @@ GLP_Result GLP_DestroyAudioPlayer(GLP_AudioPlayer *player)
     return GLP_RESULT_OK;
 }
 
+GLP_PlaybackState GLP_GetPlaybackState(GLP_AudioPlayer* player)
+{
+    GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) player;
+    if (!impl->stream)
+        return GLP_PLAYBACK_STATE_STOPPED;
+
+    SlSourceState sourceState = slSourceGetState(impl->context, impl->source);
+    switch (sourceState)
+    {
+        case SL_SOURCE_STATE_STOPPED:
+            return GLP_PLAYBACK_STATE_STOPPED;
+        case SL_SOURCE_STATE_PAUSED:
+            return GLP_PLAYBACK_STATE_PAUSED;
+        case SL_SOURCE_STATE_PLAYING:
+            return GLP_PLAYBACK_STATE_PLAYING;
+    }
+
+    return GLP_PLAYBACK_STATE_STOPPED;
+}
+
 GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) player;
@@ -98,6 +135,7 @@ GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path)
     };
 
     impl->source = slContextCreateSource(impl->context, &sourceInfo);
+    slSourceSetBufferFinishedCallback(impl->context, impl->source, GLP_BufferFinishedCallback, impl);
 
     size_t bytesPerSample = 1;
     switch (format.DataType)
@@ -116,7 +154,7 @@ GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path)
     }
 
     size_t bufferLength = (impl->info.sampleRate / 2) * bytesPerSample * format.Channels;
-    assert(bufferLength <= impl->streamBufferSize);
+    impl->streamBufferSize = bufferLength;
 
     for (int i = 0; i < GLP_NUM_AUDIO_BUFFERS; i++)
     {

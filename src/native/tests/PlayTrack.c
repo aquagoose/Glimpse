@@ -15,6 +15,12 @@
 
 int main(int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printf("Please enter a filename!");
+        return 2;
+    }
+
     GLP_AudioPlayerInfo playerInfo =
     {
         .sampleRate = 48000
@@ -23,9 +29,12 @@ int main(int argc, char **argv)
     GLP_AudioPlayer *player;
     GLP_CHECK(GLP_CreateAudioPlayer(&playerInfo, &player), "Create audio player");
 
-    GLP_CHECK(GLP_PlayTrack(player, "/Users/aqua/Music/Ernest Gold - Fight for Survival [1EMV923r7cg].mp3"), "Play track");
+    GLP_CHECK(GLP_PlayTrack(player, argv[1]), "Play track");
 
-    sleep(2);
+    while (GLP_GetPlaybackState(player) == GLP_PLAYBACK_STATE_PLAYING)
+    {
+        sleep(1);
+    }
 
     GLP_CHECK(GLP_DestroyAudioPlayer(player), "Destroy audio player");
     return 0;
