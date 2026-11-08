@@ -7,3 +7,6 @@
 [submodule "Slant.NET"]
 	path = Slant.NET
 	url = https://github.com/aquagoose/Slant.NET
+[submodule "src/native/lib/mixr"]
+	path = src/native/lib/mixr
+	url = https://github.com/aquagoose/mixr
