@@ -7,7 +7,7 @@ extern "C" {
 
 #define GLP_EXPORT
 
-typedef enum GLPResult
+typedef enum GLP_Result
 {
     GLP_RESULT_OK,
     GLP_RESULT_UNKNOWN_ERROR,
