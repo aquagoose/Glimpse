@@ -18,6 +18,8 @@ typedef struct GLP_AudioPlayerInfo
 GLP_EXPORT GLP_Result GLP_CreateAudioPlayer(const GLP_AudioPlayerInfo *info, GLP_AudioPlayer **player);
 GLP_EXPORT GLP_Result GLP_DestroyAudioPlayer(GLP_AudioPlayer *player);
 
+GLP_EXPORT GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path);
+
 #ifdef __cplusplus
 }
 #endif
