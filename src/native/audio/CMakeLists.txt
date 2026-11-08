@@ -1,0 +1,2 @@
+file(GLOB_RECURSE GLP_AUDIO_SRC CONFIGURE_DEPENDS *.h *.c)
+add_library(GlimpseAudio OBJECT ${GLP_AUDIO_SRC})
