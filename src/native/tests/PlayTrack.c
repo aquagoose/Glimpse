@@ -29,7 +29,9 @@ int main(int argc, char **argv)
     GLP_AudioPlayer *player;
     GLP_CHECK(GLP_CreateAudioPlayer(&playerInfo, &player), "Create audio player");
 
-    GLP_CHECK(GLP_PlayTrack(player, argv[1]), "Play track");
+    for (int i = 1; i < argc; i++)
+        GLP_CHECK(GLP_QueueTrack(player, argv[i]), "Queue track");
+    GLP_CHECK(GLP_PlayTrack(player, 0), "Play track");
 
     while (GLP_GetPlaybackState(player) == GLP_PLAYBACK_STATE_PLAYING)
     {

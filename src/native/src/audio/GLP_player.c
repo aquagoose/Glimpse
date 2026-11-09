@@ -2,7 +2,7 @@
 
 #include <Slant/Slant.h>
 #include <Slant/Stream/AudioStream.h>
-#include <Slant/Stream/Mp3.h>
+#include <Slant/Stream/Flac.h>
 #include <SDL3/SDL.h>
 
 #include <assert.h>
@@ -10,6 +10,7 @@
 
 #define GLP_NUM_AUDIO_BUFFERS 2
 #define GLP_MIX_BUFFER_SIZE 512
+#define GLP_INIT_QUEUE_SIZE 16
 
 typedef struct GLP_AudioPlayerImpl
 {
@@ -23,9 +24,15 @@ typedef struct GLP_AudioPlayerImpl
     size_t streamBufferSize;
     SlAudioBuffer buffers[GLP_NUM_AUDIO_BUFFERS];
     int currentBuffer;
+
+    size_t currentTrackIndex;
+    const char **playQueue;
+    size_t *playOrder;
+    size_t queueLength;
+    size_t queueCapacity;
 } GLP_AudioPlayerImpl;
 
-void GLP_MixAudioCallback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
+static void GLP_MixAudioCallback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) userdata;
 
@@ -39,7 +46,7 @@ void GLP_MixAudioCallback(void *userdata, SDL_AudioStream *stream, int additiona
     }
 }
 
-void GLP_BufferFinishedCallback(void* userData)
+static void GLP_BufferFinishedCallback(void *userData)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) userData;
     size_t got = slStreamGetBuffer(impl->stream, impl->streamBuffer, impl->streamBufferSize);
@@ -55,9 +62,44 @@ void GLP_BufferFinishedCallback(void* userData)
     impl->currentBuffer = (impl->currentBuffer + 1) % GLP_NUM_AUDIO_BUFFERS;
 }
 
+static void GLP_StopPlayback(GLP_AudioPlayerImpl* impl)
+{
+    if (!impl->stream)
+        return;
+
+    SDL_DestroyAudioStream(impl->device);
+    impl->device = NULL;
+
+    // destroying the source will immediately stop playback
+    slContextDestroySource(impl->context, impl->source);
+    slDestroyStream(impl->stream);
+
+    impl->currentTrackIndex = 0;
+    impl->queueLength = 0;
+}
+
+static GLP_Result GLP_NextTrack(GLP_AudioPlayerImpl* impl)
+{
+    GLP_Result result = GLP_PlayTrack((GLP_AudioPlayer *) impl, ++impl->currentTrackIndex);
+    if (result != GLP_RESULT_OK)
+        GLP_StopPlayback(impl);
+
+    return result;
+}
+
+static void GLP_SourceStateChangedCallback(SlSourceState state, void *userData)
+{
+    GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) userData;
+    if (state == SL_SOURCE_STATE_STOPPED)
+        GLP_NextTrack(impl);
+}
+
 GLP_Result GLP_CreateAudioPlayer(const GLP_AudioPlayerInfo *info, GLP_AudioPlayer **player)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) malloc(sizeof(GLP_AudioPlayerImpl));
+    if (!impl)
+        return GLP_RESULT_OUT_OF_MEMORY;
+
     impl->info = *info;
 
     // seriously why did i design this API without returning results???????
@@ -77,10 +119,22 @@ GLP_Result GLP_CreateAudioPlayer(const GLP_AudioPlayerInfo *info, GLP_AudioPlaye
     // set the buffer size to the sample rate / 2
     size_t bufferSize = info->sampleRate * 4;
     impl->streamBuffer = malloc(bufferSize);
+    if (!impl->streamBuffer)
+    {
+        slDestroyContext(impl->context);
+        free(impl);
+        return GLP_RESULT_OUT_OF_MEMORY;
+    }
 
     impl->currentBuffer = 0;
     for (int i = 0; i < GLP_NUM_AUDIO_BUFFERS; i++)
         impl->buffers[i] = slContextCreateBuffer(impl->context, NULL, 0);
+
+    impl->currentTrackIndex = 0;
+    impl->playQueue = (const char **) malloc(GLP_INIT_QUEUE_SIZE * sizeof(const char *));
+    impl->playOrder = (size_t *) malloc(GLP_INIT_QUEUE_SIZE * sizeof(size_t));
+    impl->queueLength = 0;
+    impl->queueCapacity = GLP_INIT_QUEUE_SIZE;
 
     *player = (GLP_AudioPlayer *) impl;
     return GLP_RESULT_OK;
@@ -89,6 +143,8 @@ GLP_Result GLP_CreateAudioPlayer(const GLP_AudioPlayerInfo *info, GLP_AudioPlaye
 GLP_Result GLP_DestroyAudioPlayer(GLP_AudioPlayer *player)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) player;
+    // stop playback and destroy all the playback objects
+    GLP_StopPlayback(impl);
 
     if (impl->device)
         SDL_DestroyAudioStream(impl->device);
@@ -101,7 +157,7 @@ GLP_Result GLP_DestroyAudioPlayer(GLP_AudioPlayer *player)
     return GLP_RESULT_OK;
 }
 
-GLP_PlaybackState GLP_GetPlaybackState(GLP_AudioPlayer* player)
+GLP_PlaybackState GLP_GetPlaybackState(GLP_AudioPlayer *player)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) player;
     if (!impl->stream)
@@ -121,11 +177,43 @@ GLP_PlaybackState GLP_GetPlaybackState(GLP_AudioPlayer* player)
     return GLP_PLAYBACK_STATE_STOPPED;
 }
 
-GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path)
+GLP_Result GLP_QueueTrack(GLP_AudioPlayer *player, const char *path)
 {
     GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) player;
+
+    // resize the queues if necessary
+    if (impl->queueLength + 1 > impl->queueCapacity)
+    {
+        size_t newCapacity = impl->queueCapacity << 1;
+        const char **newPlayQueue = (const char **) realloc(impl->playQueue, newCapacity * sizeof(const char *));
+        size_t *newPlayOrder = (size_t *) realloc(impl->playOrder, newCapacity * sizeof(size_t));
+
+        if (!newPlayQueue || !newPlayOrder)
+            return GLP_RESULT_OUT_OF_MEMORY;
+
+        impl->playQueue = newPlayQueue;
+        impl->playOrder = newPlayOrder;
+        impl->queueCapacity = newCapacity;
+    }
+
+    size_t index = impl->queueLength++;
+    impl->playQueue[index] = path;
+    impl->playOrder[index] = index;
+
+    return GLP_RESULT_OK;
+}
+
+GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, size_t index)
+{
+    GLP_AudioPlayerImpl *impl = (GLP_AudioPlayerImpl *) player;
+
+    if (index >= impl->queueLength)
+        return GLP_RESULT_INDEX_OUT_OF_RANGE;
+
+    const char *path = impl->playQueue[impl->playOrder[index]];
+
     // AGAIN WHY DID I NOT MAKE THIS SHIT RETURN RESULTS
-    slStreamLoadMp3(path, &impl->stream);
+    slStreamLoadFlac(path, &impl->stream);
     SlAudioFormat format = slStreamGetFormat(impl->stream);
 
     SlSourceDescription sourceInfo =
@@ -136,6 +224,7 @@ GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path)
 
     impl->source = slContextCreateSource(impl->context, &sourceInfo);
     slSourceSetBufferFinishedCallback(impl->context, impl->source, GLP_BufferFinishedCallback, impl);
+    slSourceSetStateChangedCallback(impl->context, impl->source, GLP_SourceStateChangedCallback, impl);
 
     size_t bytesPerSample = 1;
     switch (format.DataType)
@@ -165,17 +254,22 @@ GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path)
         slSourceSubmitBuffer(impl->context, impl->source, impl->buffers[i]);
     }
 
-    SDL_AudioSpec spec =
-    {
-        .format = SDL_AUDIO_F32,
-        .channels = 2,
-        .freq = (int) impl->info.sampleRate
-    };
+    impl->currentBuffer = 0;
 
-    impl->device = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, GLP_MixAudioCallback, impl);
     if (!impl->device)
-        return GLP_RESULT_UNKNOWN_ERROR;
-    SDL_ResumeAudioStreamDevice(impl->device);
+    {
+        SDL_AudioSpec spec =
+        {
+            .format = SDL_AUDIO_F32,
+            .channels = 2,
+            .freq = (int) impl->info.sampleRate
+        };
+
+        impl->device = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, GLP_MixAudioCallback, impl);
+        if (!impl->device)
+            return GLP_RESULT_UNKNOWN_ERROR;
+        SDL_ResumeAudioStreamDevice(impl->device);
+    }
 
     slSourcePlay(impl->context, impl->source);
 

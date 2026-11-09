@@ -6,7 +6,9 @@ extern "C" {
 #endif
 
 #include "GLP_common.h"
+
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct GLP_AudioPlayer GLP_AudioPlayer;
 
@@ -27,7 +29,8 @@ GLP_EXPORT GLP_Result GLP_DestroyAudioPlayer(GLP_AudioPlayer *player);
 
 GLP_EXPORT GLP_PlaybackState GLP_GetPlaybackState(GLP_AudioPlayer *player);
 
-GLP_EXPORT GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, const char *path);
+GLP_EXPORT GLP_Result GLP_QueueTrack(GLP_AudioPlayer *player, const char *path);
+GLP_EXPORT GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, size_t index);
 
 #ifdef __cplusplus
 }

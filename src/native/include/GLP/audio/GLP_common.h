@@ -11,7 +11,8 @@ typedef enum GLP_Result
 {
     GLP_RESULT_OK,
     GLP_RESULT_UNKNOWN_ERROR,
-    GLP_RESULT_OUT_OF_MEMORY
+    GLP_RESULT_OUT_OF_MEMORY,
+    GLP_RESULT_INDEX_OUT_OF_RANGE
 } GLP_Result;
 
 #ifdef __cplusplus
