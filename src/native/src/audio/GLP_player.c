@@ -62,17 +62,52 @@ static void GLP_BufferFinishedCallback(void *userData)
     impl->currentBuffer = (impl->currentBuffer + 1) % GLP_NUM_AUDIO_BUFFERS;
 }
 
+static GLP_Result GLP_StartDevice(GLP_AudioPlayerImpl *impl)
+{
+    if (!impl->device)
+    {
+        SDL_AudioSpec spec =
+        {
+            .format = SDL_AUDIO_F32,
+            .channels = 2,
+            .freq = (int) impl->info.sampleRate
+        };
+
+        impl->device = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, GLP_MixAudioCallback, impl);
+        if (!impl->device)
+            return GLP_RESULT_UNKNOWN_ERROR;
+    }
+
+    if (!SDL_ResumeAudioStreamDevice(impl->device))
+        return GLP_RESULT_UNKNOWN_ERROR;
+
+    return GLP_RESULT_OK;
+}
+
+static GLP_Result GLP_StopDevice(GLP_AudioPlayerImpl *impl)
+{
+    if (!impl->device)
+        return GLP_RESULT_OK;
+
+    if (!SDL_PauseAudioStreamDevice(impl->device))
+        return GLP_RESULT_UNKNOWN_ERROR;
+
+    // todo completely destroy the device after a certain interval
+
+    return GLP_RESULT_OK;
+}
+
 static void GLP_StopPlayback(GLP_AudioPlayerImpl* impl)
 {
     if (!impl->stream)
         return;
 
-    SDL_DestroyAudioStream(impl->device);
-    impl->device = NULL;
+    GLP_StopDevice(impl);
 
     // destroying the source will immediately stop playback
     slContextDestroySource(impl->context, impl->source);
     slDestroyStream(impl->stream);
+    impl->stream = NULL;
 
     impl->currentTrackIndex = 0;
     impl->queueLength = 0;
@@ -80,10 +115,24 @@ static void GLP_StopPlayback(GLP_AudioPlayerImpl* impl)
 
 static GLP_Result GLP_NextTrack(GLP_AudioPlayerImpl* impl)
 {
-    GLP_Result result = GLP_PlayTrack((GLP_AudioPlayer *) impl, ++impl->currentTrackIndex);
-    if (result != GLP_RESULT_OK)
-        GLP_StopPlayback(impl);
+    GLP_Result result;
 
+    do
+    {
+        impl->currentTrackIndex++;
+        result = GLP_PlayTrack((GLP_AudioPlayer *) impl, impl->currentTrackIndex);
+        switch (result)
+        {
+            case GLP_RESULT_INDEX_OUT_OF_RANGE:
+            {
+                GLP_StopPlayback(impl);
+                return GLP_RESULT_PLAYBACK_STOPPED;
+            }
+            default:
+                break;
+        }
+    }
+    while (result != GLP_RESULT_OK);
     return result;
 }
 
@@ -148,7 +197,7 @@ GLP_Result GLP_DestroyAudioPlayer(GLP_AudioPlayer *player)
 
     if (impl->device)
         SDL_DestroyAudioStream(impl->device);
-    SDL_Quit();
+    SDL_QuitSubSystem(SDL_INIT_AUDIO);
 
     slDestroyContext(impl->context);
     free(impl->streamBuffer);
@@ -256,21 +305,9 @@ GLP_Result GLP_PlayTrack(GLP_AudioPlayer *player, size_t index)
 
     impl->currentBuffer = 0;
 
-    if (!impl->device)
-    {
-        SDL_AudioSpec spec =
-        {
-            .format = SDL_AUDIO_F32,
-            .channels = 2,
-            .freq = (int) impl->info.sampleRate
-        };
-
-        impl->device = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, GLP_MixAudioCallback, impl);
-        if (!impl->device)
-            return GLP_RESULT_UNKNOWN_ERROR;
-        SDL_ResumeAudioStreamDevice(impl->device);
-    }
-
+    GLP_Result deviceResult = GLP_StartDevice(impl);
+    if (deviceResult != GLP_RESULT_OK)
+        return deviceResult;
     slSourcePlay(impl->context, impl->source);
 
     return GLP_RESULT_OK;
