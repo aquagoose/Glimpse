@@ -20,6 +20,7 @@ public class ManageLibraryWidget : IDisposable
     private Image _trashbin = null!;
     
     private bool _needsRefresh;
+    private MessageBoxPopup? _messageBox;
     
     public List<LibraryDirectory> LibraryPaths = null!;
 
@@ -75,9 +76,29 @@ public class ManageLibraryWidget : IDisposable
             ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.RefreshButton.Tooltip"));
 
             ImGui.SameLine();
-            
+
             if (ImGui.ImageButton("RemoveAll", _trashbin, _popup.ScaleVec(16)))
-                _glimpse.Library.RemoveAllLibraryPaths();
+            {
+                _messageBox = new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                    locale.GetString("Widget.ManageLibrary.RemoveAllPopup"),
+                    locale.GetString("Widget.ManageLibrary.RemoveAllPopup.Tooltip"),
+                    () =>
+                    {
+                        _glimpse.Library.RemoveAllLibraryPaths();
+                    });
+
+                _messageBox.Glimpse = _glimpse;
+                _messageBox.Renderer = _renderer;
+                _messageBox.Scale = _popup.Scale;
+            }
+
+            if (_messageBox != null)
+            {
+                _messageBox.UpdatePopup(1.0f);
+                if (_messageBox.IsRemoved)
+                    _messageBox = null;
+            }
+
             ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.RemoveAllButton.Tooltip"));
             
             ImGui.Separator();

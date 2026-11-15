@@ -225,6 +225,7 @@ public class MusicLibrary : IMusicLibrary
     {
         _libraryPaths.Clear();
         _excludedDirectories.Clear();
+        SaveLibrary(false);
     }
 
     public void Index()
