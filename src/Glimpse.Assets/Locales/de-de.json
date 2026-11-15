@@ -195,6 +195,9 @@
         "Widget.ManageLibrary.RemoveAllButton": "Alle entfernen",
         "Widget.ManageLibrary.RemoveAllButton.Tooltip": "ALLE Ordner aus Ihrer Bibliothek entfernen",
         "Widget.ManageLibrary.PathNotFound": "Pfad konnte nicht gefunden werden. Wurde er verschoben oder gelöscht?",
+        "Widget.ManageLibrary.Menu.RemoveFromLibrary": "Aus Bibliothek entfernen",
+        "Widget.ManageLibrary.Menu.ExcludeFromLibrary": null,
+        "Widget.ManageLibrary.Menu.IncludeInLibrary": null,
 
         "Setting.Library.RefreshLibraryOnStartup": "Beim Start aktualisieren",
         "Setting.Library.RefreshLibraryOnStartup.Tooltip": "Musikbibliothek beim Start von Glimpse aktualisieren.",
