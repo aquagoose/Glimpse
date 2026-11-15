@@ -197,7 +197,7 @@
         "Widget.ManageLibrary.RemoveAllButton.Tooltip": "Remove ALL folders from your library",
         "Widget.ManageLibrary.PathNotFound": "Path could not be found. Was it moved/deleted?",
         "Widget.ManageLibrary.Menu.RemoveFromLibrary": "Remove from Library",
-        "Widget.ManageLibrary.Menu.ExcludeFromLibrary": "Excdueede from Library",
+        "Widget.ManageLibrary.Menu.ExcludeFromLibrary": "Exclude from Library",
         "Widget.ManageLibrary.Menu.IncludeInLibrary": "Include in Library",
         
         "Setting.Library.RefreshLibraryOnStartup": "Refresh on Launch",
