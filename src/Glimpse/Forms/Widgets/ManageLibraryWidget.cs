@@ -16,8 +16,8 @@ public class ManageLibraryWidget : IDisposable
     private readonly SDL.DialogFileCallback _folderCallback;
     
     private Image _plus = null!;
-    private Image _minus = null!;
     private Image _refresh = null!;
+    private Image _trashbin = null!;
     
     private bool _needsRefresh;
     
@@ -31,9 +31,9 @@ public class ManageLibraryWidget : IDisposable
         
         _folderCallback = FolderCallback;
         
-        _plus = _renderer.CreateImage("asset://Icons.Plus.png");
-        _minus = _renderer.CreateImage("asset://Icons.Minus.png");
+        _plus = _renderer.CreateImage("asset://Icons.AddFolder.png");
         _refresh = _renderer.CreateImage("asset://Icons.Update.png");
+        _trashbin = _renderer.CreateImage("asset://Icons.Trash.png");
 
         LibraryPaths = [];
         _needsRefresh = true;
@@ -74,12 +74,13 @@ public class ManageLibraryWidget : IDisposable
                 _needsRefresh = true;
             ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.RefreshButton.Tooltip"));
 
-            ImGui.Separator();
-
-            // todo this should have a confirmation ??????????
-            if (ImGui.Button(locale.GetString("Widget.ManageLibrary.RemoveAllButton")))
+            ImGui.SameLine();
+            
+            if (ImGui.ImageButton("RemoveAll", _trashbin, _popup.ScaleVec(16)))
                 _glimpse.Library.RemoveAllLibraryPaths();
             ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.RemoveAllButton.Tooltip"));
+            
+            ImGui.Separator();
             
             ImGui.Checkbox(locale.GetString("Setting.Library.RefreshLibraryOnStartup"), ref _glimpse.Config.Library.RefreshLibraryOnStartup);
             ImGui.SetItemTooltipUnformatted(locale.GetString("Setting.Library.RefreshLibraryOnStartup.Tooltip"));
