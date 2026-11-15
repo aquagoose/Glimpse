@@ -195,6 +195,9 @@
         "Widget.ManageLibrary.RemoveAllButton": "Rimuovi tutto",
         "Widget.ManageLibrary.RemoveAllButton.Tooltip": "Rimuovi TUTTE le cartelle dalla libreria",
         "Widget.ManageLibrary.PathNotFound": "Percorso non trovato. È stato spostato o eliminato?",
+        "Widget.ManageLibrary.Menu.RemoveFromLibrary": "Rimuovi dalla libreria",
+        "Widget.ManageLibrary.Menu.ExcludeFromLibrary": null,
+        "Widget.ManageLibrary.Menu.IncludeInLibrary": null,
 
         "Setting.Library.RefreshLibraryOnStartup": "Aggiorna all'avvio",
         "Setting.Library.RefreshLibraryOnStartup.Tooltip": "Aggiorna la libreria musicale all'avvio di Glimpse.",

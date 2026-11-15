@@ -205,13 +205,13 @@ public class ManageLibraryWidget : IDisposable
             {
                 if (Enabled)
                 {
-                    if (ImGui.Selectable(IsBaseDir ? "Remove from Library" : "Exclude from Library"))
+                    if (ImGui.Selectable(locale.GetString(IsBaseDir ? "Widget.ManageLibrary.Menu.RemoveFromLibrary" : "Widget.ManageLibrary.Menu.ExcludeFromLibrary")))
                     {
                         library.RemoveLibaryPath(Path);
                         needsRefresh = true;
                     }
                 }
-                else if (ImGui.Selectable("Include in Library"))
+                else if (ImGui.Selectable(locale.GetString("Widget.ManageLibrary.Menu.IncludeInLibrary")))
                 {
                     library.AddLibraryPath(Path);
                     needsRefresh = true;
