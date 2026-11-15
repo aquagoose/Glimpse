@@ -20,7 +20,6 @@ public class ManageLibraryWidget : IDisposable
     private Image _refresh = null!;
     
     private bool _needsRefresh;
-    private string? _selectedLibrary;
     
     public List<LibraryDirectory> LibraryPaths = null!;
 
@@ -50,7 +49,7 @@ public class ManageLibraryWidget : IDisposable
         if (ImGui.BeginListBox("##Libraries", _popup.ScaleVec(375, 415)))
         {
             foreach (LibraryDirectory dir in LibraryPaths)
-                dir.Update(_glimpse.Library, ref _selectedLibrary, locale);
+                dir.Update(_glimpse.Library, ref _needsRefresh, true, locale);
             
             ImGui.EndListBox();
         }
@@ -68,18 +67,7 @@ public class ManageLibraryWidget : IDisposable
                 SDL.ShowOpenFolderDialog(_folderCallback, 0, _glimpse.MainWindow.Handle, defaultLocation, true);
             }
             ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.AddFolders.Tooltip"));
-            ImGui.SameLine();
             
-            ImGui.BeginDisabled(_selectedLibrary == null);
-            if (ImGui.ImageButton("Remove", _minus, _popup.ScaleVec(16)))
-            {
-                _glimpse.Library.RemoveLibaryPath(_selectedLibrary);
-                _selectedLibrary = null;
-                _needsRefresh = true;
-            }
-            ImGui.EndDisabled();
-            
-            ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.RemoveSelectedFolder.Tooltip"));
             ImGui.SameLine();
 
             if (ImGui.ImageButton("Refresh", _refresh, _popup.ScaleVec(16)))
@@ -164,7 +152,7 @@ public class ManageLibraryWidget : IDisposable
         }
 
         // todo can we just make the locale static or something this is horrible and i hate needing to pass it everywhere
-        public unsafe void Update(MusicLibrary library, ref string selectedDirectory, Locale locale)
+        public unsafe void Update(MusicLibrary library, ref bool needsRefresh, bool parentEnabled, Locale locale)
         {
             if (SubDirectories == null && _exists)
             {
@@ -177,11 +165,8 @@ public class ManageLibraryWidget : IDisposable
                     };
                     foreach (string directory in Directory.GetDirectories(Path, "*", options))
                     {
-                        bool enabled = true;
                         // TODO: Expose the hash set.
-                        if (library.ExcludedDirectories.Contains(directory))
-                            enabled = false;
-
+                        bool enabled = !library.ExcludedDirectories.Contains(directory);
                         SubDirectories.Add(directory, new LibraryDirectory(directory, false, enabled));
                     }
                 }
@@ -194,37 +179,54 @@ public class ManageLibraryWidget : IDisposable
             if (!_exists)
             {
                 ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(1.0f, 0.0f, 0.0f, 1.0f));
-                ImGui.TreeNodeEx(pathName,
-                    ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen |
-                    (Path == selectedDirectory ? ImGuiTreeNodeFlags.Selected : 0));
-                if (ImGui.IsItemClicked())
-                    selectedDirectory = Path;
+                ImGui.TreeNodeEx(pathName, ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.NoTreePushOnOpen);
 
                 ImGui.PopStyleColor();
                 ImGui.SetItemTooltipUnformatted(locale.GetString("Widget.ManageLibrary.PathNotFound"));
                 return;
             }
+            
+            // if this node isn't enabled, disable all child nodes.
+            // otherwise, pass through the current value
+            // this ensures that all child nodes of any disabled node will also be disabled.
+            bool shouldEnable = !Enabled ? false : parentEnabled;
 
-            if (!Enabled)
+            if (!shouldEnable)
                 ImGui.PushStyleColor(ImGuiCol.Text, *ImGui.GetStyleColorVec4(ImGuiCol.TextDisabled));
             
-            ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags.OpenOnArrow | ImGuiTreeNodeFlags.OpenOnDoubleClick | ImGuiTreeNodeFlags.DrawLinesFull;
-            if (Path == selectedDirectory)
-                flags |= ImGuiTreeNodeFlags.Selected;
+            ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags.OpenOnArrow | ImGuiTreeNodeFlags.OpenOnDoubleClick | ImGuiTreeNodeFlags.DrawLinesFull | ImGuiTreeNodeFlags.LabelSpanAllColumns;
             
             bool treeNodeOpened = ImGui.TreeNodeEx(pathName, flags);
-            if (ImGui.IsItemClicked())
-                selectedDirectory = Path;
+            
+            if (!shouldEnable)
+                ImGui.PopStyleColor();
+            
+            if (parentEnabled && ImGui.BeginPopupContextItem())
+            {
+                if (Enabled)
+                {
+                    if (ImGui.Selectable(IsBaseDir ? "Remove from Library" : "Exclude from Library"))
+                    {
+                        library.RemoveLibaryPath(Path);
+                        needsRefresh = true;
+                    }
+                }
+                else if (ImGui.Selectable("Include in Library"))
+                {
+                    library.AddLibraryPath(Path);
+                    needsRefresh = true;
+                }
+
+                ImGui.EndMenu();
+            }
+            
             if (treeNodeOpened)
             {
                 foreach ((_, LibraryDirectory directory) in SubDirectories)
-                    directory.Update(library, ref selectedDirectory, locale);
+                    directory.Update(library, ref needsRefresh, shouldEnable, locale);
                 
                 ImGui.TreePop();
             }
-
-            if (!Enabled)
-                ImGui.PopStyleColor();
         }
     }
 }
