@@ -14,8 +14,7 @@ be. If you have an idea or suggestion (even if small), please open an issue!
 
 ### Usage of Generative LLMs ("AI")
 LLMs are **NOT** to be used for **ANY** contributions. Glimpse is a project for humans, by humans.
-Any contribution using an LLM in some way will be **immediately closed and denied**.
-Glimpse follows [SDL's LLM policy](https://github.com/libsdl-org/SDL/blob/main/AGENTS.md). If you cannot contribute without using a generative model, we kindly ask that
+Any contribution using an LLM in some way will be **immediately closed and denied**. If you cannot contribute without using a generative model, we kindly ask that
 you refrain from contributing.
 
 ### Contributing Themes/Languages
