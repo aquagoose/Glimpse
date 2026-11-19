@@ -171,6 +171,11 @@ public abstract unsafe class Window : IDisposable
         _popups.Add(popup);
     }
 
+    public bool IsPopupOpen<T>() where T : Popup
+    {
+        return _popups.Count(popup => popup.GetType() == typeof(T)) > 0;
+    }
+
     protected virtual void OnScaleChanged() { }
 
     public void NotifyScaleChanged()

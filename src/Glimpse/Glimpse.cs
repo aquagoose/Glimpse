@@ -580,9 +580,12 @@ public class Glimpse : IGlimpse, IDisposable
                 if (Player.QueuedTracks.Count > 0)
                 {
                     SDL.RaiseWindow(MainWindow.Handle);
-                    MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
-                        Locale.GetString("Popup.ExitConfirmation.Name"),
-                        Locale.GetString("Popup.ExitConfirmation.Text"), () => _alive = false));
+                    if (!MainWindow.IsPopupOpen<MessageBoxPopup>())
+                    {
+                        MainWindow.AddPopup(new MessageBoxPopup(MessageBoxPopup.Buttons.YesNo,
+                            Locale.GetString("Popup.ExitConfirmation.Name"),
+                            Locale.GetString("Popup.ExitConfirmation.Text"), () => _alive = false));
+                    }
                 }
                 else
                     _alive = false;
