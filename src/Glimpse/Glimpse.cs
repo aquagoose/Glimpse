@@ -262,7 +262,7 @@ public class Glimpse : IGlimpse, IDisposable
                 // in case the user provides a file with invalid track paths,
                 // keep advancing until a valid track is found.
                 int trackIndex = 0;
-                while (!Player.Play(trackIndex++)) ;
+                while (trackIndex < Player.QueuedTracks.Count && !Player.Play(trackIndex++)) ;
                 _playFiles.Clear();
             }
 
@@ -767,7 +767,7 @@ public class Glimpse : IGlimpse, IDisposable
             default:
             {
                 // if the dropped file is a supported audio file, play it
-                if (Player.TryGetTrackInfoForFile(file, out _)) // todo expose FileIsSupported method !!!
+                if (Player.TryGetTrackInfoForFile(file, out _) || Path.GetExtension(file) == ".cue") // todo expose FileIsSupported method !!!
                     playFiles = [file];
                 else
                 {
