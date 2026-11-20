@@ -1377,14 +1377,14 @@ public class GlimpsePlayer : Window
                         _hasUpdatedQueue = true;
                         Glimpse.Logger.Log("Updating play queue.");
                         
-                        List<string> queuedTracks = player.QueuedTracks;
+                        List<AudioPlayer.QueuedTrack> queuedTracks = player.QueuedTracks;
                         List<int> playOrder = player.PlayOrder;
 
                         _queuedTracks.Clear();
                         _queuedTracks.EnsureCapacity(playOrder.Count);
                         foreach (int i in playOrder)
                         {
-                            string trackPath = queuedTracks[i];
+                            string trackPath = queuedTracks[i].Path;
                             if (!Glimpse.Library.TryGetTrack(trackPath, out Track? track))
                             {
                                 Glimpse.Player.TryGetTrackInfoForFile(trackPath, out TrackInfo? info);
