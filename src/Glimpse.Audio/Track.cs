@@ -13,6 +13,8 @@ public class Track : IDisposable
     
     private ICodecStream? _stream;
     private ILogger? _logger;
+
+    private TimeSpan? _offset;
     
     private MixrSharp.AudioFormat _format;
     private AudioSource? _source;
@@ -27,9 +29,20 @@ public class Track : IDisposable
     private object _lockObj;
     private Action _onFinish;
 
-    public readonly TrackInfo Info;
+    public TrackInfo Info;
     
-    public readonly int LengthInSeconds;
+    public readonly double LengthInSeconds;
+
+    public TimeSpan? Offset
+    {
+        get => _offset;
+        set
+        {
+            _offset = value;
+            _elapsedBytes = 0;
+            _bytesConsumed = 0;
+        }
+    }
 
     public double ElapsedSeconds
     {
@@ -73,11 +86,12 @@ public class Track : IDisposable
         }
     }
     
-    internal Track(Context context, ICodecStream stream, TrackInfo info, Action onFinish, ILogger? logger)
+    internal Track(Context context, ICodecStream stream, TrackInfo info, TimeSpan? offset, Action onFinish, ILogger? logger)
     {
         _stream = stream;
         _onFinish = onFinish;
         _logger = logger;
+        _offset = offset;
         Info = info;
 
         _format = stream.Format.ToMixr();
@@ -85,7 +99,7 @@ public class Track : IDisposable
         _logger?.Log($"SampleRate: {_format.SampleRate}");
         _logger?.Log($"Channels: {_format.Channels}");
 
-        LengthInSeconds = (int) (_stream.LengthInSamples / _format.SampleRate);
+        LengthInSeconds = _stream.LengthInSamples / (double) _format.SampleRate;
         _logger?.Log($"LengthInSeconds: {LengthInSeconds}");
 
         _logger?.Log("Creating source.");
@@ -98,6 +112,12 @@ public class Track : IDisposable
         _source.Looping = true;
 
         _lockObj = new object();
+
+        if (_offset is TimeSpan off)
+        {
+            _stream.Seek((ulong) (off.TotalSeconds * _format.SampleRate));
+            LengthInSeconds = info.Length?.TotalSeconds ?? 0;
+        }
         
         _logger?.Log("Creating audio buffers.");
         _buffers = new AudioBuffer[2];
@@ -138,7 +158,7 @@ public class Track : IDisposable
         _logger?.Log("  Pausing source.");
         _source.Pause();
         _logger?.Log("  Seeking stream.");
-        _stream.Seek((ulong) (second * _format.SampleRate));
+        _stream.Seek((ulong) ((second + (_offset?.TotalSeconds ?? 0)) * _format.SampleRate));
         _logger?.Log("  Clearing buffers.");
         _source.ClearBuffers();
         _currentBuffer = 0;
@@ -169,7 +189,18 @@ public class Track : IDisposable
     {
         _elapsedBytes += (ulong) _audioBuffer.Length;
         _bytesConsumed += (ulong) _audioBuffer.Length;
-        
+
+        // special handling if an offset is present.
+        // the track will keep playing, however it will tell the audio player that it's finished.
+        // this is to allow the audio player to determine if it needs to reload the track, or just update the
+        // play info.
+        if (_offset != null)
+        {
+            ulong elapsedSamples = _elapsedBytes / _format.BytesPerSample / _format.Channels;
+            if (elapsedSamples >= LengthInSeconds * _format.SampleRate)
+                _onFinish();
+        }
+
         Task.Run(() =>
         {
             //UpdateBuffers();

@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Glimpse.API;
 using Glimpse.API.Codecs;
+using Glimpse.Audio.Codecs;
 using Glimpse.Audio.Codecs.Flac;
 using Glimpse.Audio.Codecs.Mp3;
 using Glimpse.Audio.Codecs.Vorbis;
@@ -33,7 +34,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     private readonly List<ICodec> _codecs;
     private readonly List<IAudioPlayer.AudioEffect> _effects;
 
-    public readonly List<string> QueuedTracks;
+    public readonly List<QueuedTrack> QueuedTracks;
     public readonly List<int> PlayOrder;
     
     public IReadOnlyList<ICodec> Codecs => _codecs;
@@ -112,7 +113,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
     public int CurrentTrackIndex => _currentTrackIndex;
 
-    public string CurrentTrackPath => QueuedTracks.Count == 0 ? string.Empty : QueuedTracks[PlayOrder[_currentTrackIndex]];
+    public string CurrentTrackPath => QueuedTracks.Count == 0 ? string.Empty : QueuedTracks[PlayOrder[_currentTrackIndex]].Path;
 
     public AudioPlayer(ILogger? logger, PlayerSettings settings)
     {
@@ -136,14 +137,9 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         PlayOrder = [];
     }
 
-    /// <summary>
-    /// Queue a track at the given slot.
-    /// </summary>
-    /// <param name="path">The path to the track file.</param>
-    /// <param name="slot">The <see cref="QueueSlot"/> to insert the track at.</param>
-    public void QueueTrack(string path, QueueSlot slot, bool autoPlay = true)
+    private void QueueTrack(in QueuedTrack track, QueueSlot slot, bool autoPlay)
     {
-        _logger?.Log($"Queueing track {path}");
+        _logger?.Log($"Queueing track {track.Path}");
 
         bool isFirstQueue = autoPlay && QueuedTracks.Count == 0;
 
@@ -151,15 +147,15 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         {
             case QueueSlot.AtEnd:
                 int index = QueuedTracks.Count;
-                QueuedTracks.Add(path);
+                QueuedTracks.Add(track);
                 PlayOrder.Add(index);
                 break;
             case QueueSlot.NextTrack:
-                InsertTrackAtIndex(_currentTrackIndex + 1, path);
+                InsertTrackAtIndex(_currentTrackIndex + 1, track);
                 break;
             case QueueSlot.Clear:
                 QueuedTracks.Clear();
-                QueuedTracks.Add(path);
+                QueuedTracks.Add(track);
                 PlayOrder.Clear();
                 PlayOrder.Add(0); // no tracks so we can just add the 0th track
                 isFirstQueue = true;
@@ -173,6 +169,57 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         
         if (isFirstQueue)
             Play(0);
+    }
+
+    /// <summary>
+    /// Queue a track at the given slot.
+    /// </summary>
+    /// <param name="path">The path to the track file.</param>
+    /// <param name="slot">The <see cref="QueueSlot"/> to insert the track at.</param>
+    public void QueueTrack(string path, QueueSlot slot, bool autoPlay = true)
+    {
+        if (Path.GetExtension(path).Equals(".cue", StringComparison.InvariantCultureIgnoreCase))
+        {
+            CueFile cueFile = CueFile.Parse(path);
+            int trackID = 0;
+            foreach (CueFile.File file in cueFile.Files)
+            {
+                string fullFilePath;
+                if (Path.IsPathFullyQualified(file.Path))
+                    fullFilePath = file.Path;
+                else
+                    fullFilePath = Path.Combine(Path.GetDirectoryName(path), file.Path);
+
+                if (!TryGetTrackInfoForFile(fullFilePath, out TrackInfo? fileInfo))
+                {
+                    _logger?.Log($"Cue file: Failed to get track info for file \"{fullFilePath}\"!");
+                    continue;
+                }
+
+                ReadOnlySpan<CueFile.Track> tracks = CollectionsMarshal.AsSpan(file.Tracks);
+                for (int i = 0; i < tracks.Length; i++)
+                {
+                    ref readonly CueFile.Track track = ref tracks[i];
+
+                    TimeSpan trackLength;
+                    if (i < tracks.Length - 1)
+                        trackLength = tracks[i + 1].Offset - track.Offset;
+                    else
+                        trackLength = (fileInfo.Length - track.Offset) ?? TimeSpan.Zero;
+
+                    TrackInfo info = new TrackInfo(track.TrackNumber, track.Title, track.Artist, cueFile.Title,
+                        trackLength, null, cueFile.AlbumArtist, (uint) file.Tracks.Count, 1, (uint) cueFile.Files.Count,
+                        fileInfo.AlbumArt);
+
+                    QueuedTrack queuedTrack = new QueuedTrack(fullFilePath, trackID++, track.Offset, info);
+                    QueueTrack(queuedTrack, QueueSlot.AtEnd, autoPlay);
+                }
+            }
+            
+            return;
+        }
+        
+        QueueTrack(new QueuedTrack(path), slot, autoPlay);
     }
 
     public void QueueTracks(IEnumerable<string> paths, QueueSlot slot)
@@ -238,27 +285,28 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         if (_shouldShuffle)
             Shuffle = Shuffle; // set the shuffle mode to itself, forcing a shuffle. is it stupid? yes. does it work? yes
 
-        string path = QueuedTracks[PlayOrder[_currentTrackIndex]];
+        QueuedTrack track = QueuedTracks[PlayOrder[_currentTrackIndex]];
 
-        if (!File.Exists(path))
+        if (!File.Exists(track.Path))
             return false;
         
         //_logger?.Log("  Locking device.");
         //_device.Lock();
         Track? oldTrack = _activeTrack;
         
-        _logger?.Log($"  Creating codec stream from file {path}");
-        if (!TryCreateStreamFromFile(path, out ICodecStream? stream))
+        _logger?.Log($"  Creating codec stream from file {track.Path}");
+        if (!TryCreateStreamFromFile(track.Path, out ICodecStream? stream))
             return false;
         
-        TrackInfo info = stream.TrackInfo;
+        if (track.Info is not TrackInfo info)
+            info = stream.TrackInfo;
 
         _logger?.Log("  Creating track.");
-        _activeTrack = new Track(_context, stream, info, OnTrackFinish, _logger);
+        _activeTrack = new Track(_context, stream, info, track.Offset, OnTrackFinish, _logger);
         _activeTrack.Speed = Speed;
         //_activeTrack.UpdateBuffers += () => Stop();
 
-        TrackChanged(info, path);
+        TrackChanged(info, track.Path);
         Play();
         
         _logger?.Log("  Disposing the old track.");
@@ -412,6 +460,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     private bool FileIsSupported(string path, out ICodec outCodec)
     {
         string extension = Path.GetExtension(path).ToLower();
+        
         foreach (ICodec codec in Codecs)
         {
             if (codec.FileIsSupported(path, extension))
@@ -450,18 +499,18 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         return false;
     }
 
-    private void InsertTrackAtIndex(int index, string path)
+    private void InsertTrackAtIndex(int index, in QueuedTrack track)
     {
-        _logger?.Log($"Inserting track '{path}' at index {index}.");
+        _logger?.Log($"Inserting track '{track.Path}' at index {index}.");
         if (index >= QueuedTracks.Count)
         {
             int insertIndex = QueuedTracks.Count;
-            QueuedTracks.Add(path);
+            QueuedTracks.Add(track);
             PlayOrder.Add(insertIndex);
         }
         else
         {
-            QueuedTracks.Insert(index, path);
+            QueuedTracks.Insert(index, track);
             for (int i = 0; i < PlayOrder.Count; i++)
             {
                 if (PlayOrder[i] >= index)
@@ -484,6 +533,40 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
     private void OnTrackFinish()
     {
+        int currentIndex = PlayOrder[_currentTrackIndex];
+        int? nextIndex = _currentTrackIndex + 1 < PlayOrder.Count ? PlayOrder[_currentTrackIndex + 1] : null;
+
+        // special handling for cue files
+        // if the next track is in order, and has the same file path
+        // then do not load the next track as normal, instead make Glimpse *think* that a new song has been loaded
+        // but the track is not actually changed
+        // this is to ensure truly gapless playback and to prevent reloading the song.
+        // its a bit hacky, but it works.
+        if (nextIndex is int next && next == currentIndex + 1 && Repeat != RepeatMode.RepeatOne)
+        {
+            QueuedTrack currentTrack = QueuedTracks[currentIndex];
+            QueuedTrack nextTrack = QueuedTracks[next];
+            // when a sequential queue is added through a cue file, each track is assigned an ID
+            // that cannot be changed even if a track is removed from the play queue.
+            // this ensures that if a cue track *is* removed from the play queue, that the player will skip to the
+            // next track in the queue. without this system, the player would carry on playing and would end up
+            // playing the incorrect track.
+            if (nextTrack.Path == currentTrack.Path && nextTrack.ID == currentTrack.ID + 1)
+            {
+                Debug.Assert(_activeTrack != null);
+                // todo TrackInfo.Null, this is comical
+                if (nextTrack.Info is not TrackInfo nextInfo)
+                    nextInfo = new TrackInfo(null, null, null, null, null, null, null, null, null, null, null);
+                
+                _activeTrack.Offset = nextTrack.Offset;
+                _activeTrack.Info = nextInfo;
+                _currentTrackIndex++;
+                TrackChanged(nextInfo, nextTrack.Path);
+                ChangeState(TrackState.Playing);
+                return;
+            }
+        }
+        
         NextTrack(false);
     }
 
@@ -495,5 +578,21 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         _device.Dispose();
         _logger?.Log("Disposing context.");
         _context.Dispose();
+    }
+
+    public struct QueuedTrack
+    {
+        public readonly string Path;
+        public readonly int? ID;
+        public readonly TimeSpan? Offset;
+        public readonly TrackInfo? Info;
+
+        public QueuedTrack(string path, int? id = null, TimeSpan? offset = null, TrackInfo? info = null)
+        {
+            Path = path;
+            ID = id;
+            Offset = offset;
+            Info = info;
+        }
     }
 }

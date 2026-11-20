@@ -1377,17 +1377,18 @@ public class GlimpsePlayer : Window
                         _hasUpdatedQueue = true;
                         Glimpse.Logger.Log("Updating play queue.");
                         
-                        List<string> queuedTracks = player.QueuedTracks;
+                        List<AudioPlayer.QueuedTrack> queuedTracks = player.QueuedTracks;
                         List<int> playOrder = player.PlayOrder;
 
                         _queuedTracks.Clear();
                         _queuedTracks.EnsureCapacity(playOrder.Count);
                         foreach (int i in playOrder)
                         {
-                            string trackPath = queuedTracks[i];
+                            string trackPath = queuedTracks[i].Path;
                             if (!Glimpse.Library.TryGetTrack(trackPath, out Track? track))
                             {
-                                Glimpse.Player.TryGetTrackInfoForFile(trackPath, out TrackInfo? info);
+                                if (queuedTracks[i].Info is not TrackInfo info)
+                                    Glimpse.Player.TryGetTrackInfoForFile(trackPath, out info);
                                 track = new Track(trackPath, info);
                             }
                             
@@ -1676,6 +1677,8 @@ public class GlimpsePlayer : Window
 
     private void FavoriteButton(AudioPlayer player, Locale locale, Vector2 iconSize, Vector4 iconsColor)
     {
+        ImGui.BeginDisabled(player.QueuedTracks.Count > 0 && player.QueuedTracks[player.CurrentTrackIndex].Offset != null);
+        
         bool isInFavorites = false;
         if (player.TrackState != TrackState.Stopped)
         {
@@ -1704,6 +1707,8 @@ public class GlimpsePlayer : Window
 
         ImGui.SetItemTooltipUnformatted(
             locale.GetString(isInFavorites ? "Menu.RemoveFromFavorites" : "Menu.AddToFavorites"));
+        
+        ImGui.EndDisabled();
     }
 
     private Playlist GetOrCreateFavoritesPlaylist()
