@@ -189,6 +189,12 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                 else
                     fullFilePath = Path.Combine(Path.GetDirectoryName(path), file.Path);
 
+                if (!TryGetTrackInfoForFile(fullFilePath, out TrackInfo? fileInfo))
+                {
+                    _logger?.Log($"Cue file: Failed to get track info for file \"{fullFilePath}\"!");
+                    continue;
+                }
+
                 ReadOnlySpan<CueFile.Track> tracks = CollectionsMarshal.AsSpan(file.Tracks);
                 for (int i = 0; i < tracks.Length; i++)
                 {
@@ -198,11 +204,11 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                     if (i < tracks.Length - 1)
                         trackLength = tracks[i + 1].Offset - track.Offset;
                     else
-                        trackLength = TimeSpan.FromSeconds(10);
+                        trackLength = (fileInfo.Length - track.Offset) ?? TimeSpan.Zero;
 
                     TrackInfo info = new TrackInfo(track.TrackNumber, track.Title, track.Artist, cueFile.Title,
                         trackLength, null, cueFile.AlbumArtist, (uint) file.Tracks.Count, 1, (uint) cueFile.Files.Count,
-                        null);
+                        fileInfo.AlbumArt);
 
                     QueuedTrack queuedTrack = new QueuedTrack(fullFilePath, track.Offset, info);
                     QueueTrack(queuedTrack, QueueSlot.AtEnd, autoPlay);
