@@ -158,7 +158,7 @@ public class Track : IDisposable
         _logger?.Log("  Pausing source.");
         _source.Pause();
         _logger?.Log("  Seeking stream.");
-        _stream.Seek((ulong) ((second + _offset?.TotalSeconds ?? 0) * _format.SampleRate));
+        _stream.Seek((ulong) ((second + (_offset?.TotalSeconds ?? 0)) * _format.SampleRate));
         _logger?.Log("  Clearing buffers.");
         _source.ClearBuffers();
         _currentBuffer = 0;

@@ -583,11 +583,11 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     public struct QueuedTrack
     {
         public readonly string Path;
-        public readonly TimeSpan Offset;
         public readonly int? ID;
+        public readonly TimeSpan? Offset;
         public readonly TrackInfo? Info;
 
-        public QueuedTrack(string path, int? id = null, TimeSpan offset = new(), TrackInfo? info = null)
+        public QueuedTrack(string path, int? id = null, TimeSpan? offset = null, TrackInfo? info = null)
         {
             Path = path;
             ID = id;
