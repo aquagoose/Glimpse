@@ -137,27 +137,9 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         PlayOrder = [];
     }
 
-    public void QueueTrack(string path, QueueSlot slot, bool autoPlay, TimeSpan offset)
+    private void QueueTrack(in QueuedTrack track, QueueSlot slot, bool autoPlay)
     {
-        _logger?.Log($"Queueing track {path}");
-
-        if (Path.GetExtension(path).Equals(".cue", StringComparison.InvariantCultureIgnoreCase))
-        {
-            CueFile cueFile = CueFile.Parse(path);
-            foreach (CueFile.File file in cueFile.Files)
-            {
-                string fullFilePath;
-                if (Path.IsPathFullyQualified(file.Path))
-                    fullFilePath = file.Path;
-                else
-                    fullFilePath = Path.Combine(Path.GetDirectoryName(path), file.Path);
-                
-                foreach (CueFile.Track track in file.Tracks)
-                    QueueTrack(fullFilePath, QueueSlot.AtEnd, autoPlay, track.Offset);
-            }
-            
-            return;
-        }
+        _logger?.Log($"Queueing track {track.Path}");
 
         bool isFirstQueue = autoPlay && QueuedTracks.Count == 0;
 
@@ -165,15 +147,15 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         {
             case QueueSlot.AtEnd:
                 int index = QueuedTracks.Count;
-                QueuedTracks.Add(new QueuedTrack(path, offset));
+                QueuedTracks.Add(track);
                 PlayOrder.Add(index);
                 break;
             case QueueSlot.NextTrack:
-                InsertTrackAtIndex(_currentTrackIndex + 1, path);
+                InsertTrackAtIndex(_currentTrackIndex + 1, track);
                 break;
             case QueueSlot.Clear:
                 QueuedTracks.Clear();
-                QueuedTracks.Add(new QueuedTrack(path, offset));
+                QueuedTracks.Add(track);
                 PlayOrder.Clear();
                 PlayOrder.Add(0); // no tracks so we can just add the 0th track
                 isFirstQueue = true;
@@ -196,7 +178,41 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     /// <param name="slot">The <see cref="QueueSlot"/> to insert the track at.</param>
     public void QueueTrack(string path, QueueSlot slot, bool autoPlay = true)
     {
-        QueueTrack(path, slot, autoPlay, TimeSpan.Zero);
+        if (Path.GetExtension(path).Equals(".cue", StringComparison.InvariantCultureIgnoreCase))
+        {
+            CueFile cueFile = CueFile.Parse(path);
+            foreach (CueFile.File file in cueFile.Files)
+            {
+                string fullFilePath;
+                if (Path.IsPathFullyQualified(file.Path))
+                    fullFilePath = file.Path;
+                else
+                    fullFilePath = Path.Combine(Path.GetDirectoryName(path), file.Path);
+
+                ReadOnlySpan<CueFile.Track> tracks = CollectionsMarshal.AsSpan(file.Tracks);
+                for (int i = 0; i < tracks.Length; i++)
+                {
+                    ref readonly CueFile.Track track = ref tracks[i];
+
+                    TimeSpan trackLength;
+                    if (i < tracks.Length - 1)
+                        trackLength = tracks[i + 1].Offset - track.Offset;
+                    else
+                        trackLength = TimeSpan.FromSeconds(10);
+
+                    TrackInfo info = new TrackInfo(track.TrackNumber, track.Title, track.Artist, cueFile.Title,
+                        trackLength, null, cueFile.AlbumArtist, (uint) file.Tracks.Count, 1, (uint) cueFile.Files.Count,
+                        null);
+
+                    QueuedTrack queuedTrack = new QueuedTrack(fullFilePath, track.Offset, info);
+                    QueueTrack(queuedTrack, QueueSlot.AtEnd, autoPlay);
+                }
+            }
+            
+            return;
+        }
+        
+        QueueTrack(new QueuedTrack(path), slot, autoPlay);
     }
 
     public void QueueTracks(IEnumerable<string> paths, QueueSlot slot)
@@ -275,15 +291,13 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         if (!TryCreateStreamFromFile(track.Path, out ICodecStream? stream))
             return false;
         
-        TrackInfo info = stream.TrackInfo;
+        if (track.Info is not TrackInfo info)
+            info = stream.TrackInfo;
 
         _logger?.Log("  Creating track.");
-        _activeTrack = new Track(_context, stream, info, OnTrackFinish, _logger);
+        _activeTrack = new Track(_context, stream, info, track.Offset, OnTrackFinish, _logger);
         _activeTrack.Speed = Speed;
         //_activeTrack.UpdateBuffers += () => Stop();
-        
-        if (track.Offset != TimeSpan.Zero)
-            _activeTrack.Seek(track.Offset.TotalSeconds);
 
         TrackChanged(info, track.Path);
         Play();
@@ -478,18 +492,18 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         return false;
     }
 
-    private void InsertTrackAtIndex(int index, string path)
+    private void InsertTrackAtIndex(int index, in QueuedTrack track)
     {
-        _logger?.Log($"Inserting track '{path}' at index {index}.");
+        _logger?.Log($"Inserting track '{track.Path}' at index {index}.");
         if (index >= QueuedTracks.Count)
         {
             int insertIndex = QueuedTracks.Count;
-            QueuedTracks.Add(new QueuedTrack(path));
+            QueuedTracks.Add(track);
             PlayOrder.Add(insertIndex);
         }
         else
         {
-            QueuedTracks.Insert(index, new QueuedTrack(path));
+            QueuedTracks.Insert(index, track);
             for (int i = 0; i < PlayOrder.Count; i++)
             {
                 if (PlayOrder[i] >= index)
@@ -525,15 +539,17 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         _context.Dispose();
     }
 
-    public readonly struct QueuedTrack
+    public struct QueuedTrack
     {
         public readonly string Path;
         public readonly TimeSpan Offset;
+        public readonly TrackInfo? Info;
 
-        public QueuedTrack(string path, TimeSpan offset = new())
+        public QueuedTrack(string path, TimeSpan offset = new(), TrackInfo? info = null)
         {
             Path = path;
             Offset = offset;
+            Info = info;
         }
     }
 }
