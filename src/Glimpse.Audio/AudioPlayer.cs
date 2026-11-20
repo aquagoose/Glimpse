@@ -208,8 +208,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                         trackLength = (fileInfo.Length - track.Offset) ?? TimeSpan.Zero;
 
                     TrackInfo info = new TrackInfo(track.TrackNumber, track.Title, track.Artist, cueFile.Title,
-                        trackLength, null, cueFile.AlbumArtist, (uint) file.Tracks.Count, 1, (uint) cueFile.Files.Count,
-                        fileInfo.AlbumArt);
+                        trackLength, null, cueFile.AlbumArtist, fileInfo.AlbumArt);
 
                     QueuedTrack queuedTrack = new QueuedTrack(fullFilePath, trackID++, track.Offset, info);
                     QueueTrack(queuedTrack, QueueSlot.AtEnd, autoPlay);
@@ -556,7 +555,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                 Debug.Assert(_activeTrack != null);
                 // todo TrackInfo.Null, this is comical
                 if (nextTrack.Info is not TrackInfo nextInfo)
-                    nextInfo = new TrackInfo(null, null, null, null, null, null, null, null, null, null, null);
+                    nextInfo = new TrackInfo(null, null, null, null, null, null, null, null);
                 
                 _activeTrack.Offset = nextTrack.Offset;
                 _activeTrack.Info = nextInfo;
