@@ -1677,6 +1677,8 @@ public class GlimpsePlayer : Window
 
     private void FavoriteButton(AudioPlayer player, Locale locale, Vector2 iconSize, Vector4 iconsColor)
     {
+        ImGui.BeginDisabled(player.QueuedTracks.Count > 0 && player.QueuedTracks[player.CurrentTrackIndex].Offset != null);
+        
         bool isInFavorites = false;
         if (player.TrackState != TrackState.Stopped)
         {
@@ -1705,6 +1707,8 @@ public class GlimpsePlayer : Window
 
         ImGui.SetItemTooltipUnformatted(
             locale.GetString(isInFavorites ? "Menu.RemoveFromFavorites" : "Menu.AddToFavorites"));
+        
+        ImGui.EndDisabled();
     }
 
     private Playlist GetOrCreateFavoritesPlaylist()
