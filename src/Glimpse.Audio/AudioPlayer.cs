@@ -532,6 +532,30 @@ public class AudioPlayer : IAudioPlayer, IDisposable
 
     private void OnTrackFinish()
     {
+        int currentIndex = PlayOrder[_currentTrackIndex];
+        int? nextIndex = _currentTrackIndex + 1 < PlayOrder.Count ? PlayOrder[_currentTrackIndex + 1] : null;
+
+        // special handling for cue files
+        // if the next track is in order, and has the same file path
+        // then do not load the next track as normal, instead make Glimpse *think* that a new song has been loaded
+        // but the track is not actually changed
+        // this is to ensure truly gapless playback and to prevent reloading the song.
+        // its a bit hacky, but it works.
+        if (nextIndex is int next && next == currentIndex + 1 && Repeat != RepeatMode.RepeatOne)
+        {
+            QueuedTrack currentTrack = QueuedTracks[currentIndex];
+            QueuedTrack nextTrack = QueuedTracks[next];
+            if (nextTrack.Path == currentTrack.Path)
+            {
+                _activeTrack.Offset = nextTrack.Offset;
+                _activeTrack.Info = nextTrack.Info!;
+                _currentTrackIndex++;
+                TrackChanged(nextTrack.Info!, nextTrack.Path);
+                ChangeState(TrackState.Playing);
+                return;
+            }
+        }
+        
         NextTrack(false);
     }
 

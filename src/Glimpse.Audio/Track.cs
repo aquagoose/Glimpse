@@ -14,7 +14,7 @@ public class Track : IDisposable
     private ICodecStream? _stream;
     private ILogger? _logger;
 
-    private readonly TimeSpan? _offset;
+    private TimeSpan? _offset;
     
     private MixrSharp.AudioFormat _format;
     private AudioSource? _source;
@@ -29,9 +29,20 @@ public class Track : IDisposable
     private object _lockObj;
     private Action _onFinish;
 
-    public readonly TrackInfo Info;
+    public TrackInfo Info;
     
     public readonly double LengthInSeconds;
+
+    public TimeSpan? Offset
+    {
+        get => _offset;
+        set
+        {
+            _offset = value;
+            _elapsedBytes = 0;
+            _bytesConsumed = 0;
+        }
+    }
 
     public double ElapsedSeconds
     {
@@ -178,7 +189,18 @@ public class Track : IDisposable
     {
         _elapsedBytes += (ulong) _audioBuffer.Length;
         _bytesConsumed += (ulong) _audioBuffer.Length;
-        
+
+        // special handling if an offset is present.
+        // the track will keep playing, however it will tell the audio player that it's finished.
+        // this is to allow the audio player to determine if it needs to reload the track, or just update the
+        // play info.
+        if (_offset != null)
+        {
+            ulong elapsedSamples = _elapsedBytes / _format.BytesPerSample / _format.Channels;
+            if (elapsedSamples >= LengthInSeconds * _format.SampleRate)
+                _onFinish();
+        }
+
         Task.Run(() =>
         {
             //UpdateBuffers();

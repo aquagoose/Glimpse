@@ -262,7 +262,7 @@ public class Glimpse : IGlimpse, IDisposable
                 // in case the user provides a file with invalid track paths,
                 // keep advancing until a valid track is found.
                 int trackIndex = 0;
-                while (++trackIndex < Player.QueuedTracks.Count && !Player.Play(trackIndex)) ;
+                while (trackIndex < Player.QueuedTracks.Count && !Player.Play(trackIndex++)) ;
                 _playFiles.Clear();
             }
 
