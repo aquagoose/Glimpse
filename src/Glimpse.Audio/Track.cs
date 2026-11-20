@@ -14,7 +14,7 @@ public class Track : IDisposable
     private ICodecStream? _stream;
     private ILogger? _logger;
 
-    private readonly TimeSpan _offset;
+    private readonly TimeSpan? _offset;
     
     private MixrSharp.AudioFormat _format;
     private AudioSource? _source;
@@ -75,7 +75,7 @@ public class Track : IDisposable
         }
     }
     
-    internal Track(Context context, ICodecStream stream, TrackInfo info, TimeSpan offset, Action onFinish, ILogger? logger)
+    internal Track(Context context, ICodecStream stream, TrackInfo info, TimeSpan? offset, Action onFinish, ILogger? logger)
     {
         _stream = stream;
         _onFinish = onFinish;
@@ -102,9 +102,9 @@ public class Track : IDisposable
 
         _lockObj = new object();
 
-        if (_offset != TimeSpan.Zero)
+        if (_offset is TimeSpan off)
         {
-            _stream.Seek((ulong) (_offset.TotalSeconds * _format.SampleRate));
+            _stream.Seek((ulong) (off.TotalSeconds * _format.SampleRate));
             LengthInSeconds = info.Length?.TotalSeconds ?? 0;
         }
         
@@ -147,7 +147,7 @@ public class Track : IDisposable
         _logger?.Log("  Pausing source.");
         _source.Pause();
         _logger?.Log("  Seeking stream.");
-        _stream.Seek((ulong) ((second + _offset.TotalSeconds) * _format.SampleRate));
+        _stream.Seek((ulong) ((second + _offset?.TotalSeconds ?? 0) * _format.SampleRate));
         _logger?.Log("  Clearing buffers.");
         _source.ClearBuffers();
         _currentBuffer = 0;
