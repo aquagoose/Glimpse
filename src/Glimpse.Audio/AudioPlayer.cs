@@ -181,6 +181,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         if (Path.GetExtension(path).Equals(".cue", StringComparison.InvariantCultureIgnoreCase))
         {
             CueFile cueFile = CueFile.Parse(path);
+            int trackID = 0;
             foreach (CueFile.File file in cueFile.Files)
             {
                 string fullFilePath;
@@ -210,7 +211,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                         trackLength, null, cueFile.AlbumArtist, (uint) file.Tracks.Count, 1, (uint) cueFile.Files.Count,
                         fileInfo.AlbumArt);
 
-                    QueuedTrack queuedTrack = new QueuedTrack(fullFilePath, track.Offset, info);
+                    QueuedTrack queuedTrack = new QueuedTrack(fullFilePath, trackID++, track.Offset, info);
                     QueueTrack(queuedTrack, QueueSlot.AtEnd, autoPlay);
                 }
             }
@@ -545,12 +546,22 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         {
             QueuedTrack currentTrack = QueuedTracks[currentIndex];
             QueuedTrack nextTrack = QueuedTracks[next];
-            if (nextTrack.Path == currentTrack.Path)
+            // when a sequential queue is added through a cue file, each track is assigned an ID
+            // that cannot be changed even if a track is removed from the play queue.
+            // this ensures that if a cue track *is* removed from the play queue, that the player will skip to the
+            // next track in the queue. without this system, the player would carry on playing and would end up
+            // playing the incorrect track.
+            if (nextTrack.Path == currentTrack.Path && nextTrack.ID == currentTrack.ID + 1)
             {
+                Debug.Assert(_activeTrack != null);
+                // todo TrackInfo.Null, this is comical
+                if (nextTrack.Info is not TrackInfo nextInfo)
+                    nextInfo = new TrackInfo(null, null, null, null, null, null, null, null, null, null, null);
+                
                 _activeTrack.Offset = nextTrack.Offset;
-                _activeTrack.Info = nextTrack.Info!;
+                _activeTrack.Info = nextInfo;
                 _currentTrackIndex++;
-                TrackChanged(nextTrack.Info!, nextTrack.Path);
+                TrackChanged(nextInfo, nextTrack.Path);
                 ChangeState(TrackState.Playing);
                 return;
             }
@@ -573,11 +584,13 @@ public class AudioPlayer : IAudioPlayer, IDisposable
     {
         public readonly string Path;
         public readonly TimeSpan Offset;
+        public readonly int? ID;
         public readonly TrackInfo? Info;
 
-        public QueuedTrack(string path, TimeSpan offset = new(), TrackInfo? info = null)
+        public QueuedTrack(string path, int? id = null, TimeSpan offset = new(), TrackInfo? info = null)
         {
             Path = path;
+            ID = id;
             Offset = offset;
             Info = info;
         }
