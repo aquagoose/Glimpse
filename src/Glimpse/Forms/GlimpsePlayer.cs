@@ -1387,7 +1387,8 @@ public class GlimpsePlayer : Window
                             string trackPath = queuedTracks[i].Path;
                             if (!Glimpse.Library.TryGetTrack(trackPath, out Track? track))
                             {
-                                Glimpse.Player.TryGetTrackInfoForFile(trackPath, out TrackInfo? info);
+                                if (queuedTracks[i].Info is not TrackInfo info)
+                                    Glimpse.Player.TryGetTrackInfoForFile(trackPath, out info);
                                 track = new Track(trackPath, info);
                             }
                             
