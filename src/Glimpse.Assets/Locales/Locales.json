@@ -12,6 +12,10 @@
     "it-it": {
       "DisplayName": "Italiano",
       "Path": "it-it.json"
+    },
+    "fi-fi": {
+      "DisplayName": "Suomi",
+      "Path": "fi-fi.json"
     }
   }
 }
