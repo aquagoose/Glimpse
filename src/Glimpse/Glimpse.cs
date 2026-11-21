@@ -655,23 +655,81 @@ public class Glimpse : IGlimpse, IDisposable
 
             case SDL.EventType.KeyDown:
             {
-                // play/pause on space. if text input is active then obviously that should not pause the player
-                if (winEvent.Key.Key == SDL.Keycode.Space && !SDL.TextInputActive(MainWindow.Handle))
+                // if text input is active then ignore all key inputs
+                if (SDL.TextInputActive(MainWindow.Handle))
+                    break;
+
+                switch (winEvent.Key.Key)
                 {
-                    switch (Player.TrackState)
+                    case SDL.Keycode.Space:
                     {
-                        case TrackState.Stopped:
-                            // ignore if stopped
-                            break;
-                        case TrackState.Paused:
-                            Player.Play();
-                            break;
-                        case TrackState.Playing:
-                            Player.Pause();
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
+                        switch (Player.TrackState)
+                        {
+                            case TrackState.Stopped:
+                                // ignore if stopped
+                                break;
+                            case TrackState.Paused:
+                                Player.Play();
+                                break;
+                            case TrackState.Playing:
+                                Player.Pause();
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+
+                        break;
                     }
+
+                    case SDL.Keycode.Right:
+                        Player.Seek(Player.ElapsedTime.TotalSeconds + 5);
+                        break;
+                    case SDL.Keycode.Left:
+                        Player.Seek(Player.ElapsedTime.TotalSeconds - 5);
+                        break;
+                    
+                    case SDL.Keycode.Up:
+                        Player.Volume = float.Clamp(Player.Volume + 0.05f, 0.0f, 1.0f);
+                        break;
+                    case SDL.Keycode.Down:
+                        Player.Volume = float.Clamp(Player.Volume - 0.05f, 0.0f, 1.0f);
+                        break;
+
+                    case >= SDL.Keycode._0 and <= SDL.Keycode._9:
+                    {
+                        double divider = ((int) winEvent.Key.Key - (int) SDL.Keycode._0) / 10.0;
+                        Player.Seek(Player.TrackLength.TotalSeconds * divider);
+                        break;
+                    }
+
+                    case SDL.Keycode.S:
+                    {
+                        ShuffleMode shuffle = Player.Shuffle;
+                        shuffle++;
+                        if (shuffle > ShuffleMode.Default)
+                            shuffle = 0;
+
+                        Player.Shuffle = shuffle;
+                        break;
+                    }
+
+                    case SDL.Keycode.R:
+                    {
+                        RepeatMode repeat = Player.Repeat;
+                        repeat++;
+                        if (repeat > RepeatMode.RepeatOne)
+                            repeat = 0;
+
+                        Player.Repeat = repeat;
+                        break;
+                    }
+                    
+                    case SDL.Keycode.Period:
+                        Player.Next();
+                        break;
+                    case SDL.Keycode.Comma:
+                        Player.Previous();
+                        break;
                 }
                 
                 // we allow the above events to repeat
