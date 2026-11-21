@@ -31,7 +31,7 @@ public class Track : IDisposable
 
     public TrackInfo Info;
     
-    public readonly double LengthInSeconds;
+    public double LengthInSeconds;
 
     public TimeSpan? Offset
     {
