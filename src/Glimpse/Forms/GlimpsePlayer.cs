@@ -1469,7 +1469,7 @@ public class GlimpsePlayer : Window
                                         ImGui.PushFont(ImFontPtr.Null, 14);
                                         ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.75f, 0.75f, 0.75f, 1.0f));
                                         ImGui.TextUnformatted(
-                                            $"{artist} • {album} • {track?.Length.GetValueOrDefault():mm\\:ss}");
+                                            $"{artist} • {album} • {Utils.FormatTimespan(track.Length.GetValueOrDefault())}");
                                         ImGui.PopStyleColor();
                                         ImGui.PopFont();
 
