@@ -558,6 +558,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
                     nextInfo = new TrackInfo(null, null, null, null, null, null, null, null);
                 
                 _activeTrack.Offset = nextTrack.Offset;
+                _activeTrack.LengthInSeconds = nextInfo.Length?.TotalSeconds ?? 0;
                 _activeTrack.Info = nextInfo;
                 _currentTrackIndex++;
                 TrackChanged(nextInfo, nextTrack.Path);
