@@ -58,6 +58,7 @@ public class GlimpsePlayer : Window
     private double? _seekPosition;
     private int _currentRowHover;
     private int _currentRatingHover;
+    private bool _isShowingRemainingTime;
 
     private float _indexingProgress;
 
@@ -635,15 +636,21 @@ public class GlimpsePlayer : Window
 
                     double position = _seekPosition ?? player.ElapsedTime.TotalSeconds;
                     double length = player.TrackLength.TotalSeconds;
-                    
-                    string elapsedText = Utils.FormatTimespan(player.ElapsedTime);
+
+                    string elapsedText;
+                    if (_isShowingRemainingTime)
+                        elapsedText = $"-{Utils.FormatTimespan(player.TrackLength - player.ElapsedTime)}";
+                    else
+                        elapsedText = Utils.FormatTimespan(player.ElapsedTime);
                     string lengthText = Utils.FormatTimespan(player.TrackLength);
 
                     Vector2 elapsedTextSize = ImGui.CalcTextSize(elapsedText);
                     Vector2 lengthTextSize = ImGui.CalcTextSize(lengthText);
 
                     ImGui.SetCursorPosY(cursorPosY + align);
-                    ImGui.TextUnformatted(elapsedText);
+                    if (ImGui.TextButton(elapsedText))
+                        _isShowingRemainingTime = !_isShowingRemainingTime;
+                    //ImGui.TextUnformatted(elapsedText);
                     ImGui.SameLine();
                     
                     // TODO: Realllly need to work out a better way of working out positions rather than randomly
