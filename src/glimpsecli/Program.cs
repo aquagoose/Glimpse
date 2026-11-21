@@ -147,7 +147,7 @@ public static class GlimpseCli
         player.Play(startingTrack);
         
         PrintConsoleText(player.CurrentTrack, 0, (int) player.TrackLength.TotalSeconds, player.TrackState,
-            player.CurrentTrackIndex, files.Count, true);
+            player.CurrentTrackIndex, player.QueuedTracks.Count, true);
         
         Console.CancelKeyPress += (_, _) =>
         {
@@ -166,8 +166,9 @@ public static class GlimpseCli
         {
             int elapsed = (int) player.ElapsedTime.TotalSeconds;
             int total = (int) player.TrackLength.TotalSeconds;
-            
-            PrintConsoleText(player.CurrentTrack, elapsed, total, player.TrackState, player.CurrentTrackIndex, files.Count);
+
+            PrintConsoleText(player.CurrentTrack, elapsed, total, player.TrackState, player.CurrentTrackIndex,
+                player.QueuedTracks.Count);
 
             if (Console.KeyAvailable)
             {
