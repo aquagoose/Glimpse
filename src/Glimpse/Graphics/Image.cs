@@ -1,45 +1,35 @@
 ﻿using Hexa.NET.ImGui;
-using Silk.NET.OpenGL;
+using piko.SDL3;
 
 namespace Glimpse.Graphics;
 
-public class Image : IDisposable
+public unsafe class Image : IDisposable
 {
-    private readonly GL _gl;
+    internal readonly SDL.Texture Texture;
 
-    public readonly uint ID;
+    public nint ID => Texture.Handle;
 
-    public readonly uint Width;
+    public uint Width => (uint) Texture.W;
 
-    public readonly uint Height;
+    public uint Height => (uint) Texture.H;
 
-    public unsafe ImTextureRef TexRef => new ImTextureRef(texId: ID);
+    public ImTextureRef TexRef => new ImTextureRef(texId: ID);
     
-    internal unsafe Image(GL gl, byte[] data, uint width, uint height)
+    internal Image(SDL.Renderer renderer, byte[] data, uint width, uint height)
     {
-        _gl = gl;
+        Texture = SDL.CreateTexture(renderer, SDL.PixelFormat.Rgba32, SDL.TextureAccess.Target, (int) width, (int) height);
 
-        Width = width;
-        Height = height;
+        SDL.SetTextureBlendMode(Texture, SDL.BlendMode.Blend);
+        SDL.SetTextureScaleMode(Texture, SDL.ScaleMode.Linear);
 
-        ID = _gl.GenTexture();
-        _gl.BindTexture(TextureTarget.Texture2D, ID);
-
+        uint pitch = width * 4; // 4 bytes per pixel
         fixed (byte* pData = data)
-        {
-            _gl.TexImage2D(TextureTarget.Texture2D, 0, InternalFormat.Rgba, width, height, 0, PixelFormat.Rgba,
-                PixelType.UnsignedByte, pData);
-        }
-        
-        _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int) TextureMinFilter.LinearMipmapLinear);
-        _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int) TextureMagFilter.Linear);
-        
-        _gl.GenerateMipmap(TextureTarget.Texture2D);
+            SDL.UpdateTexture(Texture, null, (nint) pData, (int) pitch);
     }
 
     public void Dispose()
     {
-        _gl.DeleteTexture(ID);
+        SDL.DestroyTexture(Texture);
     }
     
     public static implicit operator ImTextureRef(Image img)

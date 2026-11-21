@@ -1,8 +1,7 @@
-﻿using System.Numerics;
-using System.Reflection;
+﻿using System.Diagnostics;
+using System.Numerics;
 using Glimpse.Assets;
-using Glimpse.Graphics.GLUtils;
-using Silk.NET.OpenGL;
+using piko.SDL3;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -13,61 +12,19 @@ namespace Glimpse.Graphics;
 
 public unsafe class Renderer : IDisposable
 {
-    private readonly Image _white;
-    
-    private readonly BufferShaderSet<Vertex2D, ushort> _imageRenderSet;
-
-    private Matrix4x4 _projection;
-    
-    public readonly GL GL;
+    private readonly SDL.Renderer _renderer;
 
     public readonly ImGuiRenderer ImGui;
     
-    public Renderer(GL gl, Size size)
+    public Renderer(SDL.Window window, Size size)
     {
-        GL = gl;
-        
-        GL.Enable(EnableCap.Blend);
-        GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-
-        _white = CreateImage([255, 255, 255, 255], 1, 1);
-
-        _projection = Matrix4x4.CreateOrthographicOffCenter(0, size.Width, size.Height, 0, -1, 1);
-
-        ReadOnlySpan<Vertex2D> vertices = stackalloc Vertex2D[]
-        {
-            new Vertex2D(new Vector2(0, 0), new Vector2(0, 0), Vector4.One),
-            new Vertex2D(new Vector2(1, 0), new Vector2(1, 0), Vector4.One),
-            new Vertex2D(new Vector2(1, 1), new Vector2(1, 1), Vector4.One),
-            new Vertex2D(new Vector2(0, 1), new Vector2(0, 1), Vector4.One)
-        };
-
-        ReadOnlySpan<ushort> indices = stackalloc ushort[]
-        {
-            0, 1, 3,
-            1, 2, 3
-        };
-        
-        string imageVertShader = Resource.LoadString(Assembly.GetExecutingAssembly(), ShaderAssemblyBase + "Image.vert");
-        string imageFragShader = Resource.LoadString(Assembly.GetExecutingAssembly(), ShaderAssemblyBase + "Image.frag");
-
-        _imageRenderSet = new BufferShaderSet<Vertex2D, ushort>(GL, vertices, indices, imageVertShader, imageFragShader);
-        
-        GL.EnableVertexAttribArray(0);
-        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, (uint) sizeof(Vertex2D), (void*) 0);
-        
-        GL.EnableVertexAttribArray(1);
-        GL.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, (uint) sizeof(Vertex2D), (void*) 8);
-        
-        GL.EnableVertexAttribArray(2);
-        GL.VertexAttribPointer(2, 4, VertexAttribPointerType.Float, false, (uint) sizeof(Vertex2D), (void*) 16);
-
-        ImGui = new ImGuiRenderer(GL, size);
+        _renderer = SDL.CreateRenderer(window, null);
+        ImGui = new ImGuiRenderer(_renderer, size);
     }
 
     public Image CreateImage(byte[] data, uint width, uint height)
     {
-        return new Image(GL, data, width, height);
+        return new Image(_renderer, data, width, height);
     }
 
     public Image CreateImage(string path)
@@ -83,7 +40,7 @@ public unsafe class Renderer : IDisposable
         image.CopyPixelDataTo(pixels);
         
         stream.Dispose();
-        return new Image(GL, pixels, (uint) image.Width, (uint) image.Height);
+        return new Image(_renderer, pixels, (uint) image.Width, (uint) image.Height);
     }
 
     public Image CreateImage(byte[] data, ImageLoadFlags flags = ImageLoadFlags.None)
@@ -96,48 +53,42 @@ public unsafe class Renderer : IDisposable
         byte[] pixels = new byte[image.Width * image.Height * sizeof(Rgba32)];
         image.CopyPixelDataTo(pixels);
         
-        return new Image(GL, pixels, (uint) image.Width, (uint) image.Height);
+        return new Image(_renderer, pixels, (uint) image.Width, (uint) image.Height);
     }
 
     public void Clear(Color color)
     {
-        GL.ClearColor(color);
-        GL.Clear(ClearBufferMask.ColorBufferBit);
+        SDL.SetRenderDrawColor(_renderer, color.R, color.G, color.B, color.A);
+        SDL.RenderClear(_renderer);
     }
 
     public void DrawImage(Image image, Vector2 position, Size size, Color tint)
     {
-        _imageRenderSet.Bind();
-
-        Matrix4x4 world = Matrix4x4.CreateScale(size.Width, size.Height, 1) *
-                          Matrix4x4.CreateTranslation(position.X, position.Y, 0);
-
-        _imageRenderSet.SetMatrix4x4("uTransform", world * _projection);
-        
-        _imageRenderSet.SetVector4("uTint", tint.Normalize());
-        
-        GL.ActiveTexture(TextureUnit.Texture0);
-        GL.BindTexture(TextureTarget.Texture2D, image.ID);
-        
-        GL.DrawElements(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedShort, null);
+        SDL.FRect dest = new SDL.FRect(position.X, position.Y, position.X + size.Width, position.Y + size.Height);
+        SDL.RenderTexture(_renderer, image.Texture, null, &dest);
     }
 
     public void DrawRectangle(Color color, Vector2 postion, Size size)
-        => DrawImage(_white, postion, size, color);
+    {
+        SDL.SetRenderDrawColor(_renderer, color.R, color.G, color.B, color.A);
+        SDL.FRect rect = new SDL.FRect(postion.X, postion.Y, postion.X + size.Width, postion.Y + size.Height);
+        SDL.RenderFillRect(_renderer, &rect);
+    }
+
+    public void Present(bool vsync)
+    {
+        Debug.Assert(vsync == true); // vsync cannot be false right now
+        SDL.RenderPresent(_renderer);
+    }
 
     public void Resize(Size size)
     {
-        GL.Viewport(0, 0, (uint) size.Width, (uint) size.Height);
-        _projection = Matrix4x4.CreateOrthographicOffCenter(0, size.Width, size.Height, 0, -1, 1);
-        
         ImGui.Resize(size);
     }
     
     public void Dispose()
     {
-        _imageRenderSet.Dispose();
-        _white.Dispose();
-        GL.Dispose();
+        SDL.DestroyRenderer(_renderer);
     }
 
     public const string ShaderAssemblyBase = "Glimpse.Graphics.Shaders.";
