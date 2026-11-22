@@ -4,6 +4,9 @@ namespace Glimpse.Forms;
 
 public class MessageBoxPopup : Popup
 {
+    private static int _idCounter;
+    
+    public int ID;
     public Buttons ButtonType;
     public string Title;
     public string Message;
@@ -12,6 +15,7 @@ public class MessageBoxPopup : Popup
 
     public MessageBoxPopup(Buttons buttonType, string title, string message, Action? onYes = null, Action? onNo = null)
     {
+        ID = _idCounter++;
         ButtonType = buttonType;
         Title = title;
         Message = message;
@@ -23,7 +27,7 @@ public class MessageBoxPopup : Popup
     {
         Locale locale = Glimpse.Locale;
 
-        if (ImGui.OpenPopupModal(Title))
+        if (ImGui.OpenPopupModal($"{Title}##MB{ID}"))
         {
             ImGui.TextUnformatted(Message);
 
