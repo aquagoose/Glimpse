@@ -888,7 +888,6 @@ public class Glimpse : IGlimpse, IDisposable
                 plugin.Initialize(this);
         }
         // plugin load errors shouldn't crash glimpse, especially for an incompatible api version.
-        // todo the messagebox system breaks when there's multiple messageboxes displayed at once. oops
         catch (ReflectionTypeLoadException e)
         {
             Logger.Log($"Failed to load plugin \"{id}\":\n{e}");
