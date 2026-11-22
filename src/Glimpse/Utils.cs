@@ -14,7 +14,7 @@ public static class Utils
         SDL.OpenURL(link);
     }
 
-    public static string FormatTimespan(TimeSpan timeSpan)
+    public static string FormatTimespan(TimeSpan timeSpan, bool forceHours = false)
     {
         int hours = (int) timeSpan.TotalHours;
         int minutes = timeSpan.Minutes;
@@ -22,7 +22,7 @@ public static class Utils
 
         // Only display the hour if necessary.
         // If the hour does need to be displayed, display the total number of hours, going past 24 if needed.
-        if (hours > 0)
+        if (hours > 0 || forceHours)
             return $"{hours:00}:{minutes:00}:{seconds:00}";
         
         return $"{minutes:00}:{seconds:00}";

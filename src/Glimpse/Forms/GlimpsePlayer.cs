@@ -639,9 +639,9 @@ public class GlimpsePlayer : Window
 
                     string elapsedText;
                     if (_isShowingRemainingTime)
-                        elapsedText = $"-{Utils.FormatTimespan(player.TrackLength - player.ElapsedTime)}";
+                        elapsedText = $"–{Utils.FormatTimespan(player.TrackLength - player.ElapsedTime, length > 3600)}";
                     else
-                        elapsedText = Utils.FormatTimespan(player.ElapsedTime);
+                        elapsedText = Utils.FormatTimespan(player.ElapsedTime, length > 3600);
                     string lengthText = Utils.FormatTimespan(player.TrackLength);
 
                     Vector2 elapsedTextSize = ImGui.CalcTextSize(elapsedText);
