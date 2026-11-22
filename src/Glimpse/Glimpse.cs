@@ -754,6 +754,12 @@ public class Glimpse : IGlimpse, IDisposable
 
                 break;
             }
+
+            case SDL.EventType.SystemThemeChanged:
+            {
+                ((GlimpsePlayer) MainWindow).RefreshLayout();
+                break;
+            }
         }
     }
 
