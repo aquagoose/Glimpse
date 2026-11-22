@@ -70,8 +70,8 @@ public static class ImGuiE
 
         public static bool OpenPopupModal(string name, Vector2? size = null, ImGuiWindowFlags flags = ImGuiWindowFlags.None)
         {
-            if (!ImGui.IsPopupOpen(name))
-                ImGui.OpenPopup(name);
+            if (!ImGui.IsPopupOpen(name, ImGuiPopupFlags.AnyPopup))
+                ImGui.OpenPopup(name, ImGuiPopupFlags.AnyPopup);
 
             ImGuiWindowFlags windowFlags = ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize |
                                            ImGuiWindowFlags.HorizontalScrollbar | flags; 
