@@ -319,7 +319,7 @@ public abstract unsafe class Window : IDisposable
     internal void UpdateWindow(float dt)
     {
         ImGui.SetCurrentContext(Renderer.ImGui.ImGuiContext);
-        ImGui.GetIO().DeltaTime = 1 / 60.0f;
+        ImGui.GetIO().DeltaTime = dt;
         ImGui.NewFrame();
         
         Renderer.GL.Disable(EnableCap.ScissorTest);
