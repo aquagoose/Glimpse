@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Slant.NET\MixrSharp\MixrSharp.csproj" />
+      <ProjectReference Include="..\..\MixrSharp\MixrSharp\MixrSharp.csproj" />
       <ProjectReference Include="..\Glimpse.API\Glimpse.API.csproj" />
     </ItemGroup>
 
