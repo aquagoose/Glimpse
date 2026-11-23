@@ -68,10 +68,12 @@ public static class ImGuiE
             return isEdited;
         }
 
-        public static bool OpenPopupModal(string name, Vector2? size = null, ImGuiWindowFlags flags = ImGuiWindowFlags.None)
+        public static bool OpenPopupModal(string name, Vector2? size = null, ImGuiWindowFlags flags = ImGuiWindowFlags.None, bool showOnTopOfOtherModals = false)
         {
-            if (!ImGui.IsPopupOpen(name, ImGuiPopupFlags.AnyPopup))
-                ImGui.OpenPopup(name, ImGuiPopupFlags.AnyPopup);
+            ImGuiPopupFlags popupFlags = showOnTopOfOtherModals ? ImGuiPopupFlags.None : ImGuiPopupFlags.AnyPopup;
+            
+            if (!ImGui.IsPopupOpen(name, popupFlags))
+                ImGui.OpenPopup(name, popupFlags);
 
             ImGuiWindowFlags windowFlags = ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize |
                                            ImGuiWindowFlags.HorizontalScrollbar | flags; 
