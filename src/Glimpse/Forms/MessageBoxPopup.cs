@@ -12,8 +12,9 @@ public class MessageBoxPopup : Popup
     public string Message;
     public Action? OnYes;
     public Action? OnNo;
+    public bool AlwaysShowOnTop;
 
-    public MessageBoxPopup(Buttons buttonType, string title, string message, Action? onYes = null, Action? onNo = null)
+    public MessageBoxPopup(Buttons buttonType, string title, string message, Action? onYes = null, Action? onNo = null, bool alwaysShowOnTop = false)
     {
         ID = _idCounter++;
         ButtonType = buttonType;
@@ -21,13 +22,14 @@ public class MessageBoxPopup : Popup
         Message = message;
         OnYes = onYes;
         OnNo = onNo;
+        AlwaysShowOnTop = alwaysShowOnTop;
     }
 
     protected override void Update(float dt)
     {
         Locale locale = Glimpse.Locale;
 
-        if (ImGui.OpenPopupModal($"{Title}##MB{ID}"))
+        if (ImGui.OpenPopupModal($"{Title}##MB{ID}", showOnTopOfOtherModals: AlwaysShowOnTop))
         {
             ImGui.TextUnformatted(Message);
 

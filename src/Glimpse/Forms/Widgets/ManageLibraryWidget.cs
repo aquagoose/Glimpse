@@ -85,7 +85,7 @@ public class ManageLibraryWidget : IDisposable
                     () =>
                     {
                         _glimpse.Library.RemoveAllLibraryPaths();
-                    });
+                    }, alwaysShowOnTop: true);
 
                 _messageBox.Glimpse = _glimpse;
                 _messageBox.Renderer = _renderer;
