@@ -4,6 +4,6 @@
 [submodule "empress"]
 	path = empress
 	url = https://github.com/aquagoose/empress
-[submodule "Slant.NET"]
-	path = Slant.NET
-	url = https://github.com/aquagoose/Slant.NET
+[submodule "MixrSharp"]
+	path = MixrSharp
+	url = https://github.com/aquagoose/MixrSharp

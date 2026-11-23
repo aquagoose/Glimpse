@@ -4,7 +4,7 @@
     <Project Path="Plugins/Glimpse.OpenMPT/Glimpse.OpenMPT.csproj" />
     <Project Path="Plugins/OpenMPT.NET/OpenMPT.NET/OpenMPT.NET.csproj" />
   </Folder>
-  <Project Path="Slant.NET/MixrSharp/MixrSharp.csproj" />
+  <Project Path="MixrSharp/MixrSharp/MixrSharp.csproj" />
   <Project Path="src/Glimpse.API/Glimpse.API.csproj" />
   <Project Path="src/Glimpse.Assets/Glimpse.Assets.csproj" />
   <Project Path="src/Glimpse.Audio/Glimpse.Audio.csproj" />
