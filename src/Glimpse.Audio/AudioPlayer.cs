@@ -7,6 +7,7 @@ using Glimpse.API.Codecs;
 using Glimpse.Audio.Codecs;
 using Glimpse.Audio.Codecs.Flac;
 using Glimpse.Audio.Codecs.Mp3;
+using Glimpse.Audio.Codecs.Opus;
 using Glimpse.Audio.Codecs.Vorbis;
 using Glimpse.Audio.Codecs.Wav;
 using MixrSharp;
@@ -131,7 +132,7 @@ public class AudioPlayer : IAudioPlayer, IDisposable
         Speed = settings.SpeedAdjust;
 
         _logger?.Log("Initializing codecs.");
-        _codecs = [new Mp3Codec(), new FlacCodec(), new VorbisCodec(), new WavCodec()];
+        _codecs = [new Mp3Codec(), new FlacCodec(), new VorbisCodec(), new WavCodec(), new OpusCodec()];
 
         QueuedTracks = [];
         PlayOrder = [];
